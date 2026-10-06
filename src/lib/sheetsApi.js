@@ -113,12 +113,35 @@ export async function crearHoja() {
   return id;
 }
 
-/** Lee perfil, espacios y movimientos en una sola llamada. */
+/** Lee perfil, espacios y movimientos en una sola llamada (y repara filas corridas, si las hay). */
 export async function leerDatos(id) {
-  const rangos = ['Perfil!A2:B2', 'Espacios!A2:H', 'Movimientos!A2:H']
+  const rangos = ['Perfil!A2:B2', 'Espacios!A2:I', 'Movimientos!A2:I']
     .map((r) => `ranges=${rango(r)}`).join('&');
   const datos = await llamar(`${SHEETS}/${id}/values:batchGet?${rangos}&valueRenderOption=UNFORMATTED_VALUE`);
-  const [perfil, espacios, movimientos] = datos.valueRanges.map((v) => v.values ?? []);
+  const [perfil, espaciosCrudos, movimientosCrudos] = datos.valueRanges.map((v) => v.values ?? []);
+
+  // Filas que quedaron corridas una columna a la derecha (columna A vacía): se corrigen aquí y en la hoja.
+  const arreglos = [];
+  const corregir = (hoja, filas, estaCorrida) => filas.map((f, i) => {
+    if (!estaCorrida(f)) return f;
+    const buena = f.slice(1, 9);
+    while (buena.length < 8) buena.push('');
+    arreglos.push({ range: `${hoja}!A${i + 2}:I${i + 2}`, values: [[...buena, '']] });
+    return buena;
+  });
+  const espacios = corregir('Espacios', espaciosCrudos, (f) => !f[0] && f[1] && String(f[3] ?? '').startsWith('#'));
+  const movimientos = corregir('Movimientos', movimientosCrudos,
+    (f) => !f[0] && f[1] && ['ingreso', 'gasto', 'traslado'].includes(String(f[3] ?? '')));
+  if (arreglos.length) {
+    try {
+      await llamar(`${SHEETS}/${id}/values:batchUpdate`, {
+        method: 'POST',
+        body: JSON.stringify({ valueInputOption: 'RAW', data: arreglos }),
+      });
+    } catch (e) {
+      console.warn('No se pudieron reparar las filas corridas', e);
+    }
+  }
 
   return {
     perfil: { apodo: String(perfil[0]?.[0] ?? ''), fecha_registro: String(perfil[0]?.[1] ?? '') },
@@ -140,16 +163,21 @@ export async function leerDatos(id) {
 export async function sincronizarCola(idHoja, cola, alCompletar) {
   if (!cola.length) return;
 
-  // Una sola lectura de los ids de cada pestaña (columna A) y de los ids internos de las pestañas.
+  // Se lee cada pestaña completa (A:I) para saber qué ids hay y cuál es la última fila ocupada,
+  // y los datos internos de cada pestaña (id y cuántas filas tiene la cuadrícula).
   const [columnas, info] = await Promise.all([
-    llamar(`${SHEETS}/${idHoja}/values:batchGet?ranges=${rango('Espacios!A:A')}&ranges=${rango('Movimientos!A:A')}`),
-    llamar(`${SHEETS}/${idHoja}?fields=sheets.properties(sheetId,title)`),
+    llamar(`${SHEETS}/${idHoja}/values:batchGet?ranges=${rango('Espacios!A:I')}&ranges=${rango('Movimientos!A:I')}`),
+    llamar(`${SHEETS}/${idHoja}?fields=sheets.properties(sheetId,title,gridProperties.rowCount)`),
   ]);
-  const ids = {
-    Espacios: (columnas.valueRanges[0].values ?? []).map((f) => String(f[0] ?? '')),
-    Movimientos: (columnas.valueRanges[1].values ?? []).map((f) => String(f[0] ?? '')),
+  const tabla = (i) => {
+    const filas = columnas.valueRanges[i].values ?? [];
+    return { ids: filas.map((f) => String(f[0] ?? '')), total: filas.length };
   };
-  const pestanas = Object.fromEntries(info.sheets.map((s) => [s.properties.title, s.properties.sheetId]));
+  const tablas = { Espacios: tabla(0), Movimientos: tabla(1) };
+  const pestanas = Object.fromEntries(info.sheets.map((s) => [s.properties.title, {
+    id: s.properties.sheetId,
+    filas: s.properties.gridProperties?.rowCount ?? 1000,
+  }]));
 
   for (const op of cola) {
     if (op.op === 'perfil') {
@@ -158,46 +186,62 @@ export async function sincronizarCola(idHoja, cola, alCompletar) {
         body: JSON.stringify({ values: [[op.perfil.apodo, op.perfil.fecha_registro]] }),
       });
     } else if (op.op === 'guardar') {
-      await guardarFilas(idHoja, op.hoja, op.objetos, ids[op.hoja], pestanas[op.hoja]);
+      await guardarFilas(idHoja, op.hoja, op.objetos, tablas[op.hoja], pestanas[op.hoja]);
     } else if (op.op === 'eliminar') {
-      await eliminarFilas(idHoja, op.hoja, op.ids, ids[op.hoja], pestanas[op.hoja]);
+      await eliminarFilas(idHoja, op.ids, tablas[op.hoja], pestanas[op.hoja]);
     }
     alCompletar(op.id); // se quita de la cola apenas Google confirma
   }
 }
 
-async function guardarFilas(idHoja, hoja, objetos, ids, sheetId) {
+/**
+ * Escribe filas en posiciones exactas: las que ya existen se actualizan en su fila,
+ * las nuevas van justo debajo de la última fila ocupada (columna A en adelante, siempre).
+ */
+async function guardarFilas(idHoja, hoja, objetos, tabla, pestana) {
   const aFila = hoja === 'Espacios' ? espacioAFila : movimientoAFila;
-  const existentes = [];
+  const escrituras = [];
   const nuevos = [];
   for (const obj of objetos) {
-    const indice = ids.indexOf(obj.id);
-    if (indice >= 1) existentes.push({ range: `${hoja}!A${indice + 1}:H${indice + 1}`, values: [aFila(obj)] });
+    const indice = tabla.ids.indexOf(obj.id);
+    if (indice >= 1) escrituras.push({ range: `${hoja}!A${indice + 1}:H${indice + 1}`, values: [aFila(obj)] });
     else nuevos.push(obj);
   }
 
-  if (existentes.length) {
-    await llamar(`${SHEETS}/${idHoja}/values:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({ valueInputOption: 'RAW', data: existentes }),
+  const primera = tabla.total + 1; // número de fila (desde 1) donde empiezan las nuevas
+  const ultima = tabla.total + nuevos.length;
+  if (nuevos.length) {
+    // Si la cuadrícula se queda corta, se le agregan filas antes de escribir.
+    if (pestana && ultima > pestana.filas) {
+      const faltan = ultima - pestana.filas + 100;
+      await llamar(`${SHEETS}/${idHoja}:batchUpdate`, {
+        method: 'POST',
+        body: JSON.stringify({ requests: [{ appendDimension: { sheetId: pestana.id, dimension: 'ROWS', length: faltan } }] }),
+      });
+      pestana.filas += faltan;
+    }
+    nuevos.forEach((obj, i) => {
+      const fila = primera + i;
+      escrituras.push({ range: `${hoja}!A${fila}:H${fila}`, values: [aFila(obj)] });
     });
   }
-  if (nuevos.length) {
-    const resp = await llamar(
-      `${SHEETS}/${idHoja}/values/${rango(`${hoja}!A1:H1`)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
-      { method: 'POST', body: JSON.stringify({ values: nuevos.map(aFila) }) },
-    );
-    // Anotar en qué filas quedaron, por si otra operación de la misma cola las necesita.
-    const filaInicial = Number(resp.updates?.updatedRange?.match(/!A(\d+)/)?.[1]);
-    if (filaInicial) nuevos.forEach((obj, i) => { ids[filaInicial - 1 + i] = obj.id; });
-    else nuevos.forEach((obj) => ids.push(obj.id));
 
-    // Dar el estilo lila a las filas recién agregadas. Si falla, los datos ya quedaron guardados.
-    if (filaInicial && sheetId != null) {
+  if (escrituras.length) {
+    await llamar(`${SHEETS}/${idHoja}/values:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ valueInputOption: 'RAW', data: escrituras }),
+    });
+  }
+
+  if (nuevos.length) {
+    nuevos.forEach((obj, i) => { tabla.ids[primera - 1 + i] = obj.id; });
+    tabla.total = ultima;
+    // Dar el estilo lila a las filas nuevas. Si falla, los datos ya quedaron guardados.
+    if (pestana) {
       try {
         await llamar(`${SHEETS}/${idHoja}:batchUpdate`, {
           method: 'POST',
-          body: JSON.stringify({ requests: estiloFilas(sheetId, hoja, filaInicial - 1, filaInicial - 1 + nuevos.length) }),
+          body: JSON.stringify({ requests: estiloFilas(pestana.id, hoja, primera - 1, ultima) }),
         });
       } catch (e) {
         console.warn('No se pudo dar formato a las filas nuevas', e);
@@ -206,19 +250,20 @@ async function guardarFilas(idHoja, hoja, objetos, ids, sheetId) {
   }
 }
 
-async function eliminarFilas(idHoja, hoja, idsBorrar, ids, sheetId) {
+async function eliminarFilas(idHoja, idsBorrar, tabla, pestana) {
   // Se borra de abajo hacia arriba para que los números de fila no se corran.
-  const indices = idsBorrar.map((id) => ids.indexOf(id)).filter((i) => i >= 1).sort((a, b) => b - a);
-  if (!indices.length) return; // ya no estaban: nada que hacer
+  const indices = idsBorrar.map((id) => tabla.ids.indexOf(id)).filter((i) => i >= 1).sort((a, b) => b - a);
+  if (!indices.length || !pestana) return; // ya no estaban: nada que hacer
   await llamar(`${SHEETS}/${idHoja}:batchUpdate`, {
     method: 'POST',
     body: JSON.stringify({
       requests: indices.map((i) => ({
-        deleteDimension: { range: { sheetId, dimension: 'ROWS', startIndex: i, endIndex: i + 1 } },
+        deleteDimension: { range: { sheetId: pestana.id, dimension: 'ROWS', startIndex: i, endIndex: i + 1 } },
       })),
     }),
   });
-  indices.forEach((i) => ids.splice(i, 1));
+  indices.forEach((i) => tabla.ids.splice(i, 1));
+  tabla.total -= indices.length;
 }
 
 // ------------------------------------------------------------------
@@ -263,7 +308,6 @@ function filaAMovimiento(f) {
 
 // El cálculo de saldos vive en movimientos.js (función pura); se re-exporta para no romper imports.
 export { calcularSaldos } from './movimientos';
-
 
 // ------------------------------------------------------------------
 // Estilo de la hoja: el mismo del Excel exportado (lila, bordes, pesos)
