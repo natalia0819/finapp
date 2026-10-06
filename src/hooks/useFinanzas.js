@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { borrarLocal, cargarLocal, guardarLocal } from '../lib/almacenLocal';
 import { buscarHoja, calcularSaldos, crearHoja, darFormatoHoja, leerDatos, sincronizarCola } from '../lib/sheetsApi';
-import { cerrarSesion, obtenerToken } from '../lib/googleAuth';
+import { cerrarSesion, obtenerToken, olvidarCuenta } from '../lib/googleAuth';
 import { fechaAhora, generarId } from '../lib/formato';
 
 const VACIO = { perfil: { apodo: '', fecha_registro: '' }, espacios: [], movimientos: [] };
@@ -122,7 +122,7 @@ export function useFinanzas() {
   }
 
   function salir() {
-    cerrarSesion();
+    olvidarCuenta();
     borrarLocal();
     idRef.current = null;
     setIdHoja(null);
