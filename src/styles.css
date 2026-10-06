@@ -109,6 +109,8 @@ svg { flex-shrink: 0; }
   border-radius: var(--radio-m); padding: .75rem 1rem; font-size: .95rem;
 }
 .advertencia svg { width: 20px; height: 20px; margin-top: 2px; }
+.advertencia--error { background: color-mix(in srgb, var(--negativo) 12%, var(--superficie)); color: var(--texto); }
+.advertencia--error svg { color: var(--negativo); }
 .vacio { color: var(--texto-suave); }
 .vacio--centro { text-align: center; padding: 3rem 1rem; }
 .ayuda { color: var(--texto-suave); font-size: .9rem; margin: 0; }

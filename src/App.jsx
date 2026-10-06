@@ -176,6 +176,7 @@ export default function App() {
           movimiento={modal.movimiento}
           espacios={datos.espacios}
           saldos={saldos}
+          movimientos={datos.movimientos}
           onCerrar={cerrar}
           onGuardar={(movs) => {
             f.guardarMovimientos(movs);
