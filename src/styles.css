@@ -213,6 +213,7 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .bienvenida__titulo { font-size: clamp(2rem, 7vw, 3rem); font-weight: 700; max-width: 14ch; letter-spacing: -.02em; }
 .bienvenida__texto { color: var(--texto-suave); max-width: 32ch; margin: 1rem 0 2rem; font-size: 1.05rem; }
 .bienvenida__nota { color: var(--texto-suave); font-size: .9rem; margin-top: 1rem; }
+.bienvenida__enlace { color: var(--texto-suave); font-size: .85rem; margin-top: .5rem; }
 
 /* ===== Estructura: celular primero ===== */
 .app { min-height: 100dvh; }

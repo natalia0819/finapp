@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Política de privacidad · FinApp</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <style>
+    :root { --fondo: #F6F3FD; --tarjeta: #FFFFFF; --texto: #251A3D; --suave: #5E5379; --borde: #E0D8F2; --primario: #6D28D9; color-scheme: light; }
+    @media (prefers-color-scheme: dark) {
+      :root { --fondo: #140F1F; --tarjeta: #1E1730; --texto: #F2EDFF; --suave: #B9AED6; --borde: #352B50; --primario: #B49CFF; color-scheme: dark; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--fondo); color: var(--texto); font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; line-height: 1.6; }
+    main { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    header { display: flex; align-items: center; gap: .8rem; margin-bottom: 1.5rem; }
+    header img { width: 52px; height: 52px; border-radius: 14px; }
+    header strong { font-size: 1.4rem; }
+    h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 .25rem; }
+    .fecha { color: var(--suave); margin: 0 0 2rem; }
+    section { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 18px; padding: 1.1rem 1.3rem; margin-bottom: 1rem; }
+    h2 { font-size: 1.1rem; margin: 0 0 .5rem; color: var(--primario); }
+    p, li { margin: .4rem 0; }
+    ul { padding-left: 1.2rem; margin: .4rem 0; }
+    a { color: var(--primario); }
+    .volver { display: inline-block; margin-top: 1.5rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="favicon.svg" alt="" />
+      <strong>FinApp</strong>
+    </header>
+
+    <h1>Política de privacidad</h1>
+    <p class="fecha">Última actualización: 6 de octubre de 2026</p>
+
+    <section>
+      <h2>Qué es FinApp</h2>
+      <p>FinApp es una aplicación web para organizar tus finanzas personales: repartes tu dinero en "espacios" y registras ingresos, gastos y traslados entre ellos.</p>
+    </section>
+
+    <section>
+      <h2>Dónde se guardan tus datos</h2>
+      <p>Tus datos se guardan <strong>en tu propio Google Drive</strong>, en una hoja de cálculo de Google Sheets que la app crea a tu nombre la primera vez que inicias sesión. FinApp <strong>no tiene servidores ni bases de datos propias</strong>: la persona que creó la app no recibe, no almacena y no puede ver tu información.</p>
+      <p>Para que la app funcione sin internet, se guarda una copia temporal de tus datos en el almacenamiento del navegador de tu propio dispositivo. Esa copia se borra cuando cierras sesión en la app.</p>
+    </section>
+
+    <section>
+      <h2>Qué permisos pide la app y para qué</h2>
+      <ul>
+        <li><strong>Iniciar sesión con Google:</strong> para identificar tu cuenta y conectarse a tu Google Drive.</li>
+        <li><strong>Acceso a los archivos de Google Drive creados con esta app</strong> (permiso <code>drive.file</code>): solo para crear, leer y actualizar tu hoja "Mis finanzas". La app <strong>no puede ver ni modificar ningún otro archivo</strong> de tu Drive.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Qué datos maneja</h2>
+      <p>Solo los que tú registras: tu nombre o apodo, los espacios que creas (nombre, color, ícono y meta) y tus movimientos (fecha, tipo, monto, espacio y descripción).</p>
+      <p>FinApp no usa publicidad, no usa herramientas de seguimiento o analítica, no vende ni comparte tus datos con nadie y no los usa para entrenar modelos de inteligencia artificial.</p>
+    </section>
+
+    <section>
+      <h2>Uso de los datos de Google</h2>
+      <p>El uso que hace FinApp de la información recibida de las API de Google cumple con la <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer">Política de datos de usuario de los servicios de las API de Google</a>, incluidos los requisitos de uso limitado.</p>
+    </section>
+
+    <section>
+      <h2>Tu control sobre los datos</h2>
+      <ul>
+        <li>Puedes ver y editar tu hoja directamente en Google Sheets cuando quieras.</li>
+        <li>Puedes exportar tus movimientos a Excel o CSV desde la app.</li>
+        <li>Puedes borrar todos tus datos eliminando la hoja "Mis finanzas" de tu Google Drive.</li>
+        <li>Puedes quitarle el acceso a la app en cualquier momento desde <a href="https://myaccount.google.com/permissions" target="_blank" rel="noreferrer">myaccount.google.com/permissions</a>.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Contacto</h2>      <p>Si tienes preguntas sobre esta política, escribe a: <a href="mailto:taborda.natalia1908@gmail.com">taborda.natalia1908@gmail.com</
+a></p>
+    </section>
+
+    <a class="volver" href="./">← Volver a FinApp</a>
+  </main>
+</body>
+</html>

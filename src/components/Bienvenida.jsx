@@ -19,6 +19,7 @@ export default function Bienvenida({ onEntrar, cargando, listoGoogle, error }) {
       </button>
 
       <p className="bienvenida__nota">Tus datos se guardan en tu propio Google Drive.</p>
+      <a className="bienvenida__enlace" href={`${import.meta.env.BASE_URL}privacidad.html`}>Política de privacidad</a>
       {error && <p className="alerta" role="alert">{error}</p>}
     </main>
   );
