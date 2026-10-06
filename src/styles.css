@@ -369,6 +369,7 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .ventana h2 { margin-bottom: 1.25rem; }
 .ventana__acciones { display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1.25rem; }
 .ventana__acciones .boton { flex: 1; }
+.ventana__otra-cuenta { width: 100%; justify-content: center; margin-top: .75rem; font-size: .92rem; }
 .panel-aviso .ventana__acciones { margin-top: 0; flex-wrap: wrap; }
 .panel-aviso .ventana__acciones .boton { white-space: nowrap; }
 

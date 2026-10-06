@@ -71,10 +71,10 @@ export default function App() {
   }
 
   /** Botón "Continuar con Google" / "Conectar". La ventana de Google se abre directo en el clic. */
-  async function clicGoogle() {
+  async function clicGoogle(elegirCuenta = false) {
     setError('');
     try {
-      await iniciarSesion();
+      await iniciarSesion({ elegirCuenta });
     } catch (e) {
       if (f.idHoja) setAviso(e.message); else setError(e.message);
       return;
@@ -105,7 +105,7 @@ export default function App() {
   // ---------------- Sin sesión: bienvenida ----------------
   const { datos, saldos } = f;
   if (!f.idHoja) {
-    return <Bienvenida onEntrar={clicGoogle} cargando={entrando} listoGoogle={listoGoogle} error={error} />;
+    return <Bienvenida onEntrar={() => clicGoogle(true)} cargando={entrando} listoGoogle={listoGoogle} error={error} />;
   }
 
   // ---------------- App ----------------
@@ -120,7 +120,7 @@ export default function App() {
       <Navegacion actual={pestana} onCambiar={setPestana} apodo={datos.perfil.apodo} pendientes={f.pendientes} />
 
       <main className="contenido" id="contenido">
-        <BarraSync sync={f.sync} pendientes={f.pendientes} listoGoogle={listoGoogle} onConectar={clicGoogle} onReintentar={() => f.sincronizar()} />
+        <BarraSync sync={f.sync} pendientes={f.pendientes} listoGoogle={listoGoogle} onConectar={() => clicGoogle()} onReintentar={() => f.sincronizar()} />
 
         {pestana === 'inicio' && (
           <Inicio
@@ -215,6 +215,7 @@ export default function App() {
           primeraVez={!datos.perfil.apodo}
           apodoInicial={datos.perfil.apodo}
           onCerrar={cerrar}
+          onOtraCuenta={() => { cerrar(); f.salir(); }}
           onGuardar={(apodo) => {
             f.guardarPerfil({ apodo, fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
             if (datos.perfil.apodo) setAviso('Apodo actualizado.');

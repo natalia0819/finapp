@@ -62,14 +62,14 @@ function manejarErrorVentana(err) {
  * Abre la ventana de Google. Debe llamarse directo desde un clic
  * (si no, el navegador bloquea la ventana emergente).
  */
-export function iniciarSesion() {
+export function iniciarSesion({ elegirCuenta = false } = {}) {
   return new Promise((resolve, reject) => {
     if (!clienteToken) {
       reject(new Error('Google todavía está cargando. Espera un momento.'));
       return;
     }
     pendiente = { resolve, reject };
-    clienteToken.requestAccessToken();
+    clienteToken.requestAccessToken(elegirCuenta ? { prompt: 'select_account' } : {});
   });
 }
 

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
-export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar, onCerrar }) {
+export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar, onCerrar, onOtraCuenta }) {
   const [apodo, setApodo] = useState(apodoInicial);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
@@ -28,14 +28,14 @@ export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar,
     <div className="velo">
       <form className="ventana" role="dialog" aria-modal="true" aria-labelledby="titulo-apodo" onSubmit={enviar} noValidate>
         <h2 id="titulo-apodo">{primeraVez ? '¡Bienvenido! ¿Cómo quieres que te llamemos?' : 'Cambiar apodo'}</h2>
-        <label className="campo">
-          <span>Nombre o apodo</span>
+        <label className="campo">          
           <input
             className="entrada"
             ref={campo}
             value={apodo}
             onChange={(e) => setApodo(e.target.value)}
             maxLength={30}
+            aria-label="Nombre o apodo"
             autoComplete="nickname"
             aria-invalid={Boolean(error)}
             aria-describedby={error ? 'error-apodo' : undefined}
@@ -52,6 +52,11 @@ export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar,
             Listo
           </button>
         </div>
+                {primeraVez && onOtraCuenta && (
+          <button type="button" className="boton boton--texto ventana__otra-cuenta" onClick={onOtraCuenta} disabled={guardando}>
+            ¿No es tu cuenta? Usar otra cuenta
+          </button>
+        )}
       </form>
     </div>
   );
