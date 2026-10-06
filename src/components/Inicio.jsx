@@ -13,7 +13,7 @@ function hoyTexto() {
 export default function Inicio({ apodo, espacios, movimientos, saldos, onRegistrar, onAbrirEspacio, onNuevoEspacio, onAbrirMovimiento, onVerTodos }) {
   const activos = espacios.filter((e) => e.activo);
   const total = activos.reduce((suma, e) => suma + (saldos[e.id] ?? 0), 0);
-  const recientes = ordenarRecientes(movimientos).slice(0, 6);
+  const recientes = ordenarRecientes(movimientos).slice(0, 3);
   const ultimo = recientes[0];
   const mes = resumen(filtrar(movimientos, { mes: fechaAhora().slice(0, 7) }));
 

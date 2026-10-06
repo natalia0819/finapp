@@ -8,7 +8,7 @@ import { iconoDe } from '../constants/espacios';
 import { exportarCSV, exportarExcel } from '../lib/exportar';
 
 // Cuántos movimientos se muestran de entrada y cuántos más con cada "Ver más".
-const CUANTOS = 15;
+const CUANTOS = 10;
 
 export default function Movimientos({ espacios, movimientos, onAbrir, onAviso }) {
   const mesActual = fechaAhora().slice(0, 7);
