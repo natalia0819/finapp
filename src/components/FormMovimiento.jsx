@@ -6,6 +6,7 @@ import Confirmar from './Confirmar';
 import CampoMonto from './CampoMonto';
 import SelectorEspacio from './SelectorEspacio';
 import { fechaAInput, fechaAhora, fechaCorta, generarId, inputAFecha, pesos } from '../lib/formato';
+import { validarCambio } from '../lib/movimientos';
 
 const TITULOS = {
   ingreso: { nuevo: 'Registrar ingreso', editar: 'Editar ingreso' },
@@ -13,7 +14,7 @@ const TITULOS = {
   traslado: { nuevo: 'Trasladar entre espacios', editar: 'Editar traslado' },
 };
 
-export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, espacios, saldos, onGuardar, onEliminar, onCerrar }) {
+export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, espacios, saldos, movimientos = [], onGuardar, onEliminar, onCerrar }) {
   const editando = Boolean(movimiento);
   const [tipo, setTipo] = useState(movimiento?.tipo ?? tipoInicial);
   const [monto, setMonto] = useState(movimiento?.monto ?? '');
@@ -67,12 +68,32 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
     return Object.keys(e).length === 0;
   }
 
-  function enviar() {
-    if (!validar()) return;
-    guardar();
+  // Mensaje cuando un cambio dejaría algún espacio en negativo.
+  function textoNegativo(problemas, alEliminar = false) {
+    const [p] = problemas;
+    if (!alEliminar && saleDe && problemas.length === 1 && p.espacio?.id === espacioId) {
+      return `En ${p.espacio.nombre} solo hay ${pesos(Math.max(0, disponibles[espacioId] ?? 0))}. No puedes sacar más de eso.`;
+    }
+    const lista = problemas.map((x) => `${x.espacio?.nombre ?? 'Un espacio'} quedaría en ${pesos(x.saldo)}`).join(' y ');
+    return `${alEliminar ? 'Si lo eliminas, ' : ''}${lista}. Un espacio no puede quedar en negativo: primero ajusta los gastos o traslados que usan esa plata.`;
   }
 
-  function guardar() {
+  function enviar() {
+    if (!validar()) return;
+    const movs = construir();
+    const problemas = validarCambio(espacios, movimientos, movimiento ? [movimiento.id] : [], movs);
+    if (problemas.length) { setErrores({ monto: textoNegativo(problemas) }); return; }
+    onGuardar(movs);
+  }
+
+  function pedirEliminar() {
+    const problemas = validarCambio(espacios, movimientos, [movimiento.id], []);
+    if (problemas.length) { setErrores({ general: textoNegativo(problemas, true) }); return; }
+    setConfirmar('eliminar');
+  }
+
+  /** Arma los movimientos a guardar (uno, o varios si se reparte un ingreso). */
+  function construir() {
     const cuando = fecha ?? fechaAhora();
     const texto = descripcion.trim();
     if (tipo === 'ingreso' && repartir) {
@@ -83,10 +104,9 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
           id: generarId(), fecha: cuando, tipo: 'ingreso', monto: Number(reparto[e.id]),
           espacio_id: e.id, espacio_destino_id: '', descripcion: texto, grupo_id: grupo,
         }));
-      onGuardar(movs);
-      return;
+      return movs;
     }
-    onGuardar([{
+    return [{
       id: movimiento?.id ?? generarId(),
       fecha: cuando,
       tipo,
@@ -95,13 +115,13 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
       espacio_destino_id: tipo === 'traslado' ? destinoId : '',
       descripcion: texto,
       grupo_id: movimiento?.grupo_id ?? '',
-    }]);
+    }];
   }
 
   const pie = (
     <>
       {editando && (
-        <button type="button" className="boton boton--peligro" onClick={() => setConfirmar('eliminar')}>
+        <button type="button" className="boton boton--peligro" onClick={pedirEliminar}>
           <Trash2 aria-hidden="true" /> Eliminar
         </button>
       )}
@@ -172,9 +192,9 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
       )}
 
       {superaSaldo && (
-        <p className="advertencia" role="status">
+        <p className="advertencia advertencia--error" role="status">
           <TriangleAlert aria-hidden="true" />
-          Supera el saldo de este espacio ({pesos(disponibles[espacioId])}). Quedaría en {pesos(disponibles[espacioId] - monto)}.
+          En este espacio solo hay {pesos(Math.max(0, disponibles[espacioId] ?? 0))}. No puedes sacar más de eso.
         </p>
       )}
 
@@ -198,6 +218,8 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
           </div>
         )}
       </div>
+
+      {errores.general && <p className="alerta" role="alert">{errores.general}</p>}
 
       {confirmar === 'eliminar' && (
         <Confirmar titulo="¿Eliminar este movimiento?" mensaje="Los saldos se recalculan. Esto no se puede deshacer." textoSi="Eliminar" peligro

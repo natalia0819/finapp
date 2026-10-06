@@ -71,3 +71,18 @@ export function calcularSaldos(espacios, movimientos) {
   }
   return saldos;
 }
+
+/**
+ * Revisa si un cambio deja algún espacio en negativo.
+ * quitar: ids de movimientos que se eliminan o se reemplazan; poner: movimientos nuevos o editados.
+ * Solo se bloquea si un espacio termina en negativo Y queda peor que antes
+ * (así, si ya había un negativo viejo, se puede corregir con ingresos o traslados hacia él).
+ * Devuelve [{ espacio, saldo }] con los espacios que quedarían mal (vacío = todo bien).
+ */
+export function validarCambio(espacios, movimientos, quitar = [], poner = []) {
+  const antes = calcularSaldos(espacios, movimientos);
+  const despues = calcularSaldos(espacios, [...movimientos.filter((m) => !quitar.includes(m.id)), ...poner]);
+  return Object.keys(despues)
+    .filter((id) => despues[id] < 0 && despues[id] < antes[id])
+    .map((id) => ({ espacio: espacios.find((e) => e.id === id), saldo: despues[id] }));
+}
