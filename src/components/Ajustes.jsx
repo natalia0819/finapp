@@ -1,9 +1,10 @@
 // Pantalla 8: ajustes.
 import {
   CircleCheck, Download, ExternalLink, FileSpreadsheet, FileText, LayoutGrid, LogOut,
-  Monitor, Moon, Pencil, RefreshCw, Smartphone, Sun,
+  Monitor, Moon, Pencil, RefreshCw, Smartphone, Smile, Sun,
 } from 'lucide-react';
 import { fechaCorta } from '../lib/formato';
+import { Avatar } from '../constants/avatares';
 
 const TEMAS = [
   { id: 'claro', texto: 'Claro', Icono: Sun },
@@ -12,7 +13,7 @@ const TEMAS = [
 ];
 
 export default function Ajustes({
-  apodo, tema, onTema, onEditarApodo, onGestionarEspacios, totalEspacios, totalArchivados,
+  apodo, avatar, onCambiarAvatar, tema, onTema, onEditarApodo, onGestionarEspacios, totalEspacios, totalArchivados,
   onExportar, idHoja, pendientes, ultimaSync, sincronizando, onSincronizar, instalar, onSalir,
 }) {
   return (
@@ -22,9 +23,17 @@ export default function Ajustes({
 
       <section className="bloque">
         <h2>Perfil</h2>
-        <div className="fila-ajuste">
-          <p className="perfil__nombre">{apodo}</p>
-          <button className="boton boton--suave" onClick={onEditarApodo}><Pencil aria-hidden="true" /> Cambiar</button>
+        <div className="perfil">
+          <button type="button" className="perfil__avatar" onClick={onCambiarAvatar} aria-label="Cambiar avatar">
+            <Avatar clave={avatar} apodo={apodo} tam={64} />
+          </button>
+          <div className="perfil__datos">
+            <p className="perfil__nombre">{apodo}</p>
+            <div className="perfil__botones">
+              <button className="boton boton--suave boton--chico" onClick={onEditarApodo}><Pencil aria-hidden="true" /> Cambiar nombre</button>
+              <button className="boton boton--suave boton--chico" onClick={onCambiarAvatar}><Smile aria-hidden="true" /> Cambiar avatar</button>
+            </div>
+          </div>
         </div>
       </section>
 

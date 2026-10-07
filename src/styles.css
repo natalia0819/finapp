@@ -384,6 +384,31 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
   .galeria { grid-template-columns: repeat(4, 1fr); }
 }
 
+/* ===== Avatares ===== */
+.avatar { display: block; flex-shrink: 0; border-radius: 50%; }
+.avatar-inicial {
+  display: inline-grid; place-items: center; flex-shrink: 0; border-radius: 50%; font-weight: 700;
+  background: linear-gradient(135deg, var(--lila), var(--primario)); color: #fff; font-family: var(--fuente-titulo);
+}
+.avatar-vista { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+.avatar-vista strong { font-family: var(--fuente-titulo); font-size: 1.25rem; }
+.avatares { display: grid; grid-template-columns: repeat(4, 1fr); gap: .9rem .5rem; justify-items: center; }
+.avatar-op { position: relative; display: block; border-radius: 50%; padding: 3px; border: 3px solid transparent; cursor: pointer; }
+.avatar-op input { position: absolute; opacity: 0; pointer-events: none; }
+.avatar-op:has(input:checked) { border-color: var(--primario); }
+.avatar-op:has(input:focus-visible) { outline: 3px solid var(--primario); outline-offset: 2px; }
+.avatar-op__chulo {
+  position: absolute; right: -4px; bottom: -2px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--primario); color: var(--primario-texto); border: 2px solid var(--superficie); display: none; place-items: center;
+}
+.avatar-op__chulo svg { width: 13px; height: 13px; stroke-width: 3.5; }
+.avatar-op:has(input:checked) .avatar-op__chulo { display: grid; }
+.saludo-fila { display: flex; align-items: center; gap: .7rem; }
+.saludo-avatar, .perfil__avatar { border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; display: block; }
+.perfil { display: flex; align-items: center; gap: 1rem; }
+.perfil__datos { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.perfil__botones { display: flex; flex-wrap: wrap; gap: .5rem; }
+
 /* ===== Piezas nuevas (todas las pantallas) ===== */
 .solo-pc { display: none; }
 .fecha-hoy { display: none; }
@@ -418,6 +443,7 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
   .nav__item { flex: 0; min-height: 66px; font-size: .74rem; }
   .nav__pie { display: flex; justify-content: center; }
   .nav__usuario { display: none; }
+  .avatares { grid-template-columns: repeat(5, 1fr); }
   .nav__avatar {
     width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
     background: linear-gradient(135deg, var(--lila), var(--primario)); color: #fff; font-family: var(--fuente-titulo);

@@ -4,13 +4,15 @@ import TarjetaEspacio from './TarjetaEspacio';
 import FilaMovimiento from './FilaMovimiento';
 import { fechaAhora, pesos } from '../lib/formato';
 import { filtrar, ordenarRecientes, resumen } from '../lib/movimientos';
+import { Avatar } from '../constants/avatares';
+
 
 function hoyTexto() {
   const t = new Date().toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-export default function Inicio({ apodo, espacios, movimientos, saldos, onRegistrar, onAbrirEspacio, onNuevoEspacio, onAbrirMovimiento, onVerTodos }) {
+export default function Inicio({ apodo, avatar, onCambiarAvatar, espacios, movimientos, saldos, onRegistrar, onAbrirEspacio, onNuevoEspacio, onAbrirMovimiento, onVerTodos }) {
   const activos = espacios.filter((e) => e.activo);
   const total = activos.reduce((suma, e) => suma + (saldos[e.id] ?? 0), 0);
   const recientes = ordenarRecientes(movimientos).slice(0, 3);
@@ -21,7 +23,12 @@ export default function Inicio({ apodo, espacios, movimientos, saldos, onRegistr
     <div className="inicio">
       <section className="inicio__resumen" aria-label="Resumen">
         <div className="inicio__cabecera">
-          <p className="saludo">Hola, {apodo}</p>
+          <div className="saludo-fila">
+            <button type="button" className="saludo-avatar" onClick={onCambiarAvatar} aria-label="Cambiar avatar">
+              <Avatar clave={avatar} apodo={apodo} tam={44} />
+            </button>
+            <p className="saludo">Hola, {apodo}</p>
+          </div>
           <p className="fecha-hoy">{hoyTexto()}</p>
         </div>
 

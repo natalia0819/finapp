@@ -9,7 +9,7 @@ const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 
 export const COLUMNAS = {
-  Perfil: ['apodo', 'fecha_registro'],
+  Perfil: ['apodo', 'fecha_registro', 'avatar'],
   Espacios: ['id', 'nombre', 'color', 'icono', 'meta', 'activo', 'es_predeterminado', 'fecha_creacion'],
   Movimientos: ['id', 'fecha', 'tipo', 'monto', 'espacio_id', 'espacio_destino_id', 'descripcion', 'grupo_id'],
 };
@@ -97,7 +97,7 @@ export async function crearHoja() {
     body: JSON.stringify({
       valueInputOption: 'RAW',
       data: [
-        { range: 'Perfil!A1:B1', values: [COLUMNAS.Perfil] },
+        { range: 'Perfil!A1:C1', values: [COLUMNAS.Perfil] },
         { range: 'Espacios!A1:H3', values: [COLUMNAS.Espacios, ...filasEspacios] },
         { range: 'Movimientos!A1:H1', values: [COLUMNAS.Movimientos] },
       ],
@@ -115,7 +115,7 @@ export async function crearHoja() {
 
 /** Lee perfil, espacios y movimientos en una sola llamada (y repara filas corridas, si las hay). */
 export async function leerDatos(id) {
-  const rangos = ['Perfil!A2:B2', 'Espacios!A2:I', 'Movimientos!A2:I']
+  const rangos = ['Perfil!A2:C2', 'Espacios!A2:I', 'Movimientos!A2:I']
     .map((r) => `ranges=${rango(r)}`).join('&');
   const datos = await llamar(`${SHEETS}/${id}/values:batchGet?${rangos}&valueRenderOption=UNFORMATTED_VALUE`);
   const [perfil, espaciosCrudos, movimientosCrudos] = datos.valueRanges.map((v) => v.values ?? []);
@@ -144,7 +144,7 @@ export async function leerDatos(id) {
   }
 
   return {
-    perfil: { apodo: String(perfil[0]?.[0] ?? ''), fecha_registro: String(perfil[0]?.[1] ?? '') },
+    perfil: { apodo: String(perfil[0]?.[0] ?? ''), fecha_registro: String(perfil[0]?.[1] ?? ''), avatar: String(perfil[0]?.[2] ?? '') },
     espacios: espacios.filter((f) => f[0]).map(filaAEspacio),
     movimientos: movimientos.filter((f) => f[0]).map(filaAMovimiento),
   };
@@ -158,7 +158,7 @@ export async function leerDatos(id) {
 // porque las filas se buscan por id antes de escribir.
 //   { op: 'guardar',  hoja: 'Espacios' | 'Movimientos', objetos: [...] }
 //   { op: 'eliminar', hoja: 'Espacios' | 'Movimientos', ids: [...] }
-//   { op: 'perfil',   perfil: { apodo, fecha_registro } }
+//   { op: 'perfil',   perfil: { apodo, fecha_registro, avatar } }
 
 export async function sincronizarCola(idHoja, cola, alCompletar) {
   if (!cola.length) return;
@@ -181,9 +181,10 @@ export async function sincronizarCola(idHoja, cola, alCompletar) {
 
   for (const op of cola) {
     if (op.op === 'perfil') {
-      await llamar(`${SHEETS}/${idHoja}/values/${rango('Perfil!A2:B2')}?valueInputOption=RAW`, {
+      // Se escribe también el encabezado, por si la hoja es de antes de que existiera la columna "avatar".
+      await llamar(`${SHEETS}/${idHoja}/values/${rango('Perfil!A1:C2')}?valueInputOption=RAW`, {
         method: 'PUT',
-        body: JSON.stringify({ values: [[op.perfil.apodo, op.perfil.fecha_registro]] }),
+        body: JSON.stringify({ values: [COLUMNAS.Perfil, [op.perfil.apodo, op.perfil.fecha_registro, op.perfil.avatar ?? '']] }),
       });
     } else if (op.op === 'guardar') {
       await guardarFilas(idHoja, op.hoja, op.objetos, tablas[op.hoja], pestanas[op.hoja]);
@@ -320,10 +321,10 @@ const FUENTE_SHEETS = 'Roboto Condensed';
 const BORDE = { style: 'SOLID', color: rgb('#000000') };
 const BORDES = { top: BORDE, bottom: BORDE, left: BORDE, right: BORDE };
 const FORMATO_PESOS = { type: 'CURRENCY', pattern: '"$" #,##0' };
-const ANCHO_TABLA = { Perfil: 2, Espacios: 8, Movimientos: 8 };
+const ANCHO_TABLA = { Perfil: 3, Espacios: 8, Movimientos: 8 };
 const COLUMNA_PESOS = { Espacios: 4, Movimientos: 3 }; // meta (E) y monto (D)
 const ANCHOS = {
-  Perfil: [200, 170],
+  Perfil: [200, 170, 120],
   Espacios: [110, 220, 90, 120, 130, 70, 140, 160],
   Movimientos: [110, 160, 90, 130, 150, 170, 260, 110],
 };

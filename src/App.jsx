@@ -11,6 +11,7 @@ import FormMovimiento from './components/FormMovimiento';
 import FormEspacio from './components/FormEspacio';
 import GestionEspacios from './components/GestionEspacios';
 import Confirmar from './components/Confirmar';
+import SelectorAvatar from './components/SelectorAvatar';
 import { useFinanzas } from './hooks/useFinanzas';
 import { prepararCliente, iniciarSesion, obtenerToken } from './lib/googleAuth';
 import { fechaAhora } from './lib/formato';
@@ -51,6 +52,7 @@ export default function App() {
       window.removeEventListener('appinstalled', alInstalar);
     };
   }, []);
+
   // Si la app estuvo en segundo plano más de un minuto, al volver se abre en Inicio.
   useEffect(() => {
     let ocultaDesde = 0;
@@ -127,7 +129,7 @@ export default function App() {
   return (
     <div className="app">
       <a className="saltar" href="#contenido">Saltar al contenido</a>
-      <Navegacion actual={pestana} onCambiar={setPestana} apodo={datos.perfil.apodo} pendientes={f.pendientes} />
+      <Navegacion actual={pestana} onCambiar={setPestana} apodo={datos.perfil.apodo} avatar={datos.perfil.avatar} pendientes={f.pendientes} />
 
       <main className="contenido" id="contenido">
         <BarraSync sync={f.sync} pendientes={f.pendientes} listoGoogle={listoGoogle} onConectar={() => clicGoogle()} onReintentar={() => f.sincronizar()} />
@@ -135,6 +137,8 @@ export default function App() {
         {pestana === 'inicio' && (
           <Inicio
             apodo={datos.perfil.apodo}
+            avatar={datos.perfil.avatar}
+            onCambiarAvatar={() => setModal({ tipo: 'avatar' })}
             espacios={datos.espacios}
             movimientos={datos.movimientos}
             saldos={saldos}
@@ -156,6 +160,8 @@ export default function App() {
         {pestana === 'ajustes' && (
           <Ajustes
             apodo={datos.perfil.apodo}
+            avatar={datos.perfil.avatar}
+            onCambiarAvatar={() => setModal({ tipo: 'avatar' })}
             tema={tema}
             onTema={cambiarTema}
             onEditarApodo={() => setModal({ tipo: 'apodo' })}
@@ -228,8 +234,21 @@ export default function App() {
           onCerrar={cerrar}
           onOtraCuenta={() => { cerrar(); f.salir(); }}
           onGuardar={(apodo) => {
-            f.guardarPerfil({ apodo, fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
+            f.guardarPerfil({ ...datos.perfil, apodo, fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
             if (datos.perfil.apodo) setAviso('Apodo actualizado.');
+            cerrar();
+          }}
+        />
+      )}
+
+      {modal?.tipo === 'avatar' && (
+        <SelectorAvatar
+          actual={datos.perfil.avatar}
+          apodo={datos.perfil.apodo}
+          onCerrar={cerrar}
+          onGuardar={(avatar) => {
+            f.guardarPerfil({ ...datos.perfil, avatar, fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
+            setAviso('Avatar actualizado.');
             cerrar();
           }}
         />

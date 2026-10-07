@@ -1,5 +1,6 @@
 // Navegación: barra inferior en el celular, riel compacto en laptops y barra lateral completa en pantallas grandes.
 import { LayoutGrid, ListOrdered, Settings } from 'lucide-react';
+import { Avatar } from '../constants/avatares';
 
 const PESTANAS = [
   { id: 'inicio', texto: 'Inicio', Icono: LayoutGrid },
@@ -7,7 +8,7 @@ const PESTANAS = [
   { id: 'ajustes', texto: 'Ajustes', Icono: Settings },
 ];
 
-export default function Navegacion({ actual, onCambiar, apodo = '', pendientes = 0 }) {
+export default function Navegacion({ actual, onCambiar, apodo = '', avatar = '', pendientes = 0 }) {
   return (
     <nav className="nav" aria-label="Secciones">
       <div className="nav__marca">
@@ -31,7 +32,7 @@ export default function Navegacion({ actual, onCambiar, apodo = '', pendientes =
 
       {apodo && (
         <div className="nav__pie">
-          <span className="nav__avatar" aria-hidden="true">{apodo.trim().charAt(0).toUpperCase()}</span>
+          <Avatar clave={avatar} apodo={apodo} tam={40} className="nav__avatar" />
           <span className="nav__usuario">
             <strong>{apodo}</strong>
             <small>{pendientes ? `${pendientes} sin sincronizar` : 'Datos en tu Google Drive'}</small>
