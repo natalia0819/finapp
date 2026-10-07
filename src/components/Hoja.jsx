@@ -11,8 +11,13 @@ export default function Hoja({ titulo, onCerrar, onSubmit, pie, children, ancha 
     const alPresionar = (e) => { if (e.key === 'Escape') onCerrar(); };
     document.addEventListener('keydown', alPresionar);
     document.body.style.overflow = 'hidden';
-    // Enfocar el primer campo, o la ventana si no hay campos.
-    const primero = caja.current?.querySelector('[data-autofocus], input:not([type="radio"]), select, textarea');
+    // En PC (mouse y teclado) se enfoca el primer campo para escribir de una.
+    // En celular no: enfocar un campo abre el teclado y tapa el formulario;
+    // ahí se enfoca solo la ventana, y el teclado sale cuando la persona toca un campo.
+    const conMouse = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const primero = conMouse
+      ? caja.current?.querySelector('[data-autofocus], input:not([type="radio"]), select, textarea')
+      : null;
     (primero ?? caja.current)?.focus();
     return () => {
       document.removeEventListener('keydown', alPresionar);
