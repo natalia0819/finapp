@@ -50,7 +50,17 @@ export default function App() {
       window.removeEventListener('beforeinstallprompt', antesDeInstalar);
       window.removeEventListener('appinstalled', alInstalar);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+  // Si la app estuvo en segundo plano más de un minuto, al volver se abre en Inicio.
+  useEffect(() => {
+    let ocultaDesde = 0;
+    const alCambiar = () => {
+      if (document.visibilityState === 'hidden') ocultaDesde = Date.now();
+      else if (ocultaDesde && Date.now() - ocultaDesde > 60 * 1000) setPestana('inicio');
+    };
+    document.addEventListener('visibilitychange', alCambiar);
+    return () => document.removeEventListener('visibilitychange', alCambiar);
+  }, []);
 
   useEffect(() => {
     if (!aviso) return undefined;
