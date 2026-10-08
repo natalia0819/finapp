@@ -135,7 +135,8 @@ export function useFinanzas() {
   // ---------------- Acciones ----------------
 
   function guardarPerfil(perfil) {
-    encolar([{ op: 'perfil', perfil }], (d) => ({ ...d, perfil }));
+    const cambioMoneda = (perfil.moneda || '') !== (datos.perfil.moneda || '');
+    encolar([{ op: 'perfil', perfil, cambioMoneda }], (d) => ({ ...d, perfil }));
   }
 
   function guardarEspacio(espacio) {

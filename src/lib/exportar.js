@@ -1,6 +1,7 @@
 // Exportar movimientos a Excel (.xlsx) o CSV, generados en el navegador (sin servidor).
 import { TEXTO_TIPO } from './movimientos';
 import { fechaAhora } from './formato';
+import { codigoMoneda } from './moneda';
 
 function filas(movimientos, espacios) {
   const nombre = (id) => espacios.find((e) => e.id === id)?.nombre ?? '';
@@ -17,7 +18,7 @@ function filas(movimientos, espacios) {
     }));
 }
 
-const ENCABEZADOS = ['Fecha', 'Tipo', 'Monto (COP)', 'Espacio', 'Espacio destino', 'Descripción'];
+const encabezados = () => ['Fecha', 'Tipo', `Monto (${codigoMoneda()})`, 'Espacio', 'Espacio destino', 'Descripción'];
 
 function descargar(blob, nombre) {
   const url = URL.createObjectURL(blob);
@@ -38,7 +39,7 @@ export function exportarCSV(movimientos, espacios) {
     const t = String(v ?? '');
     return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
-  const lineas = [ENCABEZADOS, ...filas(movimientos, espacios).map(Object.values)]
+  const lineas = [encabezados(), ...filas(movimientos, espacios).map(Object.values)]
     .map((f) => f.map(escapar).join(';'));
   descargar(new Blob(['\uFEFF' + lineas.join('\r\n')], { type: 'text/csv;charset=utf-8' }), nombreArchivo('csv'));
 }

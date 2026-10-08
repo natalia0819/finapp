@@ -1,9 +1,13 @@
 // Pantalla 2: ventana emergente del apodo. Se usa la primera vez y también desde Ajustes.
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import SelectorMoneda, { CampoMoneda } from './SelectorMoneda';
+import { MONEDA_POR_DEFECTO } from '../lib/moneda';
 
-export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar, onCerrar, onOtraCuenta }) {
+export default function VentanaApodo({ apodoInicial = '', monedaInicial = '', primeraVez, onGuardar, onCerrar, onOtraCuenta }) {
   const [apodo, setApodo] = useState(apodoInicial);
+  const [moneda, setMoneda] = useState(monedaInicial || MONEDA_POR_DEFECTO);
+  const [eligiendoMoneda, setEligiendoMoneda] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
   const campo = useRef(null);
@@ -17,7 +21,7 @@ export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar,
     setGuardando(true);
     setError('');
     try {
-      await onGuardar(limpio);
+      await onGuardar(limpio, moneda);
     } catch (err) {
       setError(err.message);
       setGuardando(false);
@@ -42,6 +46,11 @@ export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar,
             required
           />
         </label>
+        {primeraVez && (
+          <div className="ventana__moneda">
+            <CampoMoneda codigo={moneda} etiqueta="Tu moneda" onAbrir={() => setEligiendoMoneda(true)} />
+          </div>
+        )}
         {error && <p id="error-apodo" className="alerta" role="alert">{error}</p>}
         <div className="ventana__acciones">
           {!primeraVez && (
@@ -58,6 +67,13 @@ export default function VentanaApodo({ apodoInicial = '', primeraVez, onGuardar,
           </button>
         )}
       </form>
+      {eligiendoMoneda && (
+        <SelectorMoneda
+          actual={moneda}
+          onElegir={(codigo) => { setMoneda(codigo); setEligiendoMoneda(false); }}
+          onCerrar={() => setEligiendoMoneda(false)}
+        />
+      )}
     </div>
   );
 }

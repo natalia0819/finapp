@@ -3,8 +3,9 @@ import {
   CircleCheck, Download, ExternalLink, FileSpreadsheet, FileText, LayoutGrid, LogOut,
   Monitor, Moon, Pencil, RefreshCw, Smartphone, Smile, Sun,
 } from 'lucide-react';
-import { fechaCorta } from '../lib/formato';
+import { fechaCorta, pesos } from '../lib/formato';
 import { Avatar } from '../constants/avatares';
+import { CampoMoneda } from './SelectorMoneda';
 
 const TEMAS = [
   { id: 'claro', texto: 'Claro', Icono: Sun },
@@ -13,7 +14,7 @@ const TEMAS = [
 ];
 
 export default function Ajustes({
-  apodo, avatar, onCambiarAvatar, tema, onTema, onEditarApodo, onGestionarEspacios, totalEspacios, totalArchivados,
+  apodo, avatar, onCambiarAvatar, moneda, onCambiarMoneda, tema, onTema, onEditarApodo, onGestionarEspacios, totalEspacios, totalArchivados,
   onExportar, idHoja, pendientes, ultimaSync, sincronizando, onSincronizar, instalar, onSalir,
 }) {
   return (
@@ -35,6 +36,12 @@ export default function Ajustes({
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="bloque">
+        <h2>Moneda</h2>
+        <CampoMoneda codigo={moneda} onAbrir={onCambiarMoneda} />
+        <p className="ayuda ajustes__ejemplo">Así se muestran tus montos: {pesos(1234.5)}</p>
       </section>
 
       <section className="bloque">

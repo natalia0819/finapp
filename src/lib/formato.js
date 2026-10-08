@@ -1,17 +1,22 @@
-// Utilidades de formato: pesos colombianos, fechas e ids.
+// Utilidades de formato: dinero (según la moneda elegida), fechas e ids.
+import { datosMoneda, redondear } from './moneda';
 
-const formatoCOP = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
-
-/** 20000 -> "$ 20.000" ; -5000 -> "−$ 5.000" (con espacio que no se parte) */
+/** Monto con símbolo y formato de la moneda actual: "$ 20.000", "US$ 6.75", "4,50 €". Negativos con "−". */
 export function pesos(valor) {
-  const n = Math.round(Number(valor) || 0);
-  const texto = `$\u00A0${formatoCOP.format(Math.abs(n))}`;
+  const m = datosMoneda();
+  const n = redondear(valor);
+  const numero = new Intl.NumberFormat(m.locale, {
+    minimumFractionDigits: m.decimales, maximumFractionDigits: m.decimales, useGrouping: 'always',
+  }).format(Math.abs(n));
+  const texto = m.simboloDespues ? `${numero}\u00A0${m.simbolo}` : `${m.simbolo}\u00A0${numero}`; // espacio que no se parte
   return n < 0 ? `−${texto}` : texto;
 }
 
-/** 20000 -> "20.000" (para los campos de monto) */
+/** Número sin símbolo, con separadores de la moneda actual: 20000 -> "20.000" */
 export function miles(valor) {
-  return valor === '' || valor == null ? '' : formatoCOP.format(Number(valor));
+  if (valor === '' || valor == null) return '';
+  const m = datosMoneda();
+  return new Intl.NumberFormat(m.locale, { maximumFractionDigits: m.decimales, useGrouping: 'always' }).format(Number(valor));
 }
 
 const dos = (n) => String(n).padStart(2, '0');

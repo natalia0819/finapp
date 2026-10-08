@@ -409,6 +409,26 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .perfil__datos { display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
 .perfil__botones { display: flex; flex-wrap: wrap; gap: .5rem; }
 
+/* ===== Moneda ===== */
+.moneda-campo { display: flex; align-items: center; gap: .7rem; text-align: left; cursor: pointer; }
+.moneda-sim {
+  min-width: 44px; height: 32px; padding: 0 .4rem; border-radius: 10px; flex-shrink: 0;
+  background: var(--superficie-2); color: var(--primario); font-weight: 700; display: grid; place-items: center; font-size: .9rem;
+}
+.moneda-nom { flex: 1; min-width: 0; font-weight: 600; }
+.moneda-nom small { color: var(--texto-suave); font-weight: 500; margin-left: .3rem; }
+.moneda-flecha { width: 18px; height: 18px; color: var(--texto-suave); }
+.moneda-lista { border: 1px solid var(--borde); border-radius: 16px; overflow-y: auto; overscroll-behavior: contain; min-height: 120px; }
+.moneda-op { display: flex; align-items: center; gap: .8rem; width: 100%; padding: .75rem 1rem; border: 0; background: none; text-align: left; cursor: pointer; min-height: 56px; }
+.moneda-op + .moneda-op { border-top: 1px solid var(--borde); }
+.moneda-op:hover { background: var(--superficie-2); }
+.moneda-op .moneda-nom small { display: block; margin: 0; }
+.moneda-op.sel { background: color-mix(in srgb, var(--primario) 8%, var(--superficie)); }
+.moneda-ok { width: 24px; height: 24px; border-radius: 50%; background: var(--primario); color: var(--primario-texto); display: grid; place-items: center; }
+.moneda-ok svg { width: 14px; height: 14px; stroke-width: 3; }
+.ventana__moneda { margin-top: 1rem; }
+.ajustes__ejemplo { margin-top: .6rem; }
+
 /* ===== Piezas nuevas (todas las pantallas) ===== */
 .solo-pc { display: none; }
 .fecha-hoy { display: none; }

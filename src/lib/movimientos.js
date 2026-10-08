@@ -1,4 +1,5 @@
 // Funciones puras sobre la lista de movimientos (ordenar, filtrar, agrupar, resumir).
+import { redondear } from './moneda';
 
 export const TEXTO_TIPO = { ingreso: 'Ingreso', gasto: 'Gasto', traslado: 'Traslado' };
 
@@ -33,7 +34,7 @@ export function resumen(movs, espacio) {
       if (m.espacio_id === espacio) salio += m.monto;
     }
   }
-  return { entro, salio };
+  return { entro: redondear(entro), salio: redondear(salio) };
 }
 
 /** Agrupa por día: [{ dia: "2026-10-05", movs: [...] }, ...] */
@@ -69,6 +70,7 @@ export function calcularSaldos(espacios, movimientos) {
       sumar(m.espacio_destino_id, m.monto);
     }
   }
+  for (const id in saldos) saldos[id] = redondear(saldos[id]); // sin errores de centavos
   return saldos;
 }
 

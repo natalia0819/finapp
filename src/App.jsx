@@ -12,6 +12,8 @@ import FormEspacio from './components/FormEspacio';
 import GestionEspacios from './components/GestionEspacios';
 import Confirmar from './components/Confirmar';
 import SelectorAvatar from './components/SelectorAvatar';
+import SelectorMoneda from './components/SelectorMoneda';
+import { usarMoneda } from './lib/moneda';
 import { useFinanzas } from './hooks/useFinanzas';
 import { prepararCliente, iniciarSesion, obtenerToken } from './lib/googleAuth';
 import { fechaAhora } from './lib/formato';
@@ -116,6 +118,7 @@ export default function App() {
 
   // ---------------- Sin sesión: bienvenida ----------------
   const { datos, saldos } = f;
+  usarMoneda(datos.perfil.moneda); // todos los montos de la app se muestran en la moneda de la persona
   if (!f.idHoja) {
     return <Bienvenida onEntrar={() => clicGoogle(true)} cargando={entrando} listoGoogle={listoGoogle} error={error} />;
   }
@@ -162,6 +165,8 @@ export default function App() {
             apodo={datos.perfil.apodo}
             avatar={datos.perfil.avatar}
             onCambiarAvatar={() => setModal({ tipo: 'avatar' })}
+            moneda={datos.perfil.moneda || 'COP'}
+            onCambiarMoneda={() => setModal({ tipo: 'moneda' })}
             tema={tema}
             onTema={cambiarTema}
             onEditarApodo={() => setModal({ tipo: 'apodo' })}
@@ -231,10 +236,11 @@ export default function App() {
         <VentanaApodo
           primeraVez={!datos.perfil.apodo}
           apodoInicial={datos.perfil.apodo}
+          monedaInicial={datos.perfil.moneda}
           onCerrar={cerrar}
           onOtraCuenta={() => { cerrar(); f.salir(); }}
-          onGuardar={(apodo) => {
-            f.guardarPerfil({ ...datos.perfil, apodo, fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
+          onGuardar={(apodo, moneda) => {
+            f.guardarPerfil({ ...datos.perfil, apodo, moneda: moneda || datos.perfil.moneda || 'COP', fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
             if (datos.perfil.apodo) setAviso('Apodo actualizado.');
             cerrar();
           }}
@@ -249,6 +255,20 @@ export default function App() {
           onGuardar={(avatar) => {
             f.guardarPerfil({ ...datos.perfil, avatar, fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
             setAviso('Avatar actualizado.');
+            cerrar();
+          }}
+        />
+      )}
+
+      {modal?.tipo === 'moneda' && (
+        <SelectorMoneda
+          actual={datos.perfil.moneda || 'COP'}
+          onCerrar={cerrar}
+          onElegir={(moneda) => {
+            if (moneda !== (datos.perfil.moneda || 'COP')) {
+              f.guardarPerfil({ ...datos.perfil, moneda, fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
+              setAviso('Moneda actualizada.');
+            }
             cerrar();
           }}
         />

@@ -4,13 +4,21 @@
 // No depende del navegador: así se puede probar también en Node.
 import { calcularSaldos } from './movimientos';
 import { leerFecha } from './formato';
+import { datosMoneda } from './moneda';
 
 const LILA_FUERTE = '#D5ABFF';
 const LILA_SUAVE = '#EAD5FF';
 const AMARILLO = '#FFFFAB';
 const AMARILLO_TOTAL = '#FFFF99';
 const FUENTE = 'Bahnschrift Light Condensed';
-const PESOS = '_-"$"* #,##0_-;\\-"$"* #,##0_-;_-"$"* "-"??_-;_-@_-';
+// Formato contable de Excel con el símbolo y los decimales de la moneda elegida.
+function formatoExcel() {
+  const m = datosMoneda();
+  const n = m.decimales > 0 ? '#,##0.00' : '#,##0';
+  const cero = m.decimales > 0 ? '"-"??' : '"-"';
+  if (m.simboloDespues) return `_-* ${n} "${m.simbolo}"_-;\\-* ${n} "${m.simbolo}"_-;_-* ${cero} "${m.simbolo}"_-;_-@_-`;
+  return `_-"${m.simbolo}"* ${n}_-;\\-"${m.simbolo}"* ${n}_-;_-"${m.simbolo}"* ${cero}_-;_-@_-`;
+}
 
 const MESES = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
 const TIPO = { ingreso: 'Ingreso', gasto: 'Gasto', traslado: 'Traslado' };
@@ -18,8 +26,8 @@ const TIPO = { ingreso: 'Ingreso', gasto: 'Gasto', traslado: 'Traslado' };
 // ---------- Celdas con estilo ----------
 const base = { fontFamily: FUENTE, fontSize: 11, borderStyle: 'thin', borderColor: '#000000', alignVertical: 'center' };
 const texto = (value, extra = {}) => ({ ...base, type: String, value: String(value ?? ''), ...extra });
-const dinero = (value, extra = {}) => ({ ...base, type: Number, value: Number(value) || 0, format: PESOS, ...extra });
-const formula = (value, extra = {}) => ({ ...base, type: 'Formula', value, format: PESOS, ...extra });
+const dinero = (value, extra = {}) => ({ ...base, type: Number, value: Number(value) || 0, format: formatoExcel(), ...extra });
+const formula = (value, extra = {}) => ({ ...base, type: 'Formula', value, format: formatoExcel(), ...extra });
 const vacia = () => null;
 
 /** Índice de columna (0 = A) a letra: 0→A, 27→AB */
