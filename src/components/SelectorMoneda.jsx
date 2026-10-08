@@ -51,8 +51,7 @@ export default function SelectorMoneda({ actual, onElegir, onCerrar }) {
           </button>
         ))}
         {lista.length === 0 && <p className="vacio" style={{ padding: '1rem' }}>No encontramos esa moneda.</p>}
-      </div>
-      <p className="ayuda">Cambiar la moneda no convierte tus montos: solo cambia cómo se muestran.</p>
+      </div>      
     </Hoja>
   );
 }
