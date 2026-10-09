@@ -69,6 +69,24 @@ export const AVATARES = {
      <ellipse cx="28" cy="62" rx="11" ry="24" transform="rotate(18 28 62)" fill="#92400E"/><ellipse cx="92" cy="62" rx="11" ry="24" transform="rotate(-18 92 62)" fill="#92400E"/>
      <ellipse cx="60" cy="84" rx="16" ry="12" fill="#FEF3C7"/>${ojos(47, 73, 66)}<ellipse cx="60" cy="78" rx="6" ry="4.5" fill="#1E1B2E"/>
      <path d="M56 86q4 8 8 0" fill="#F472B6"/>${mejillas(38, 82, 80)}` },
+  koala: { nombre: 'Koala', fondo: '#ECFCCB', dibujo:
+    `<circle cx="28" cy="46" r="20" fill="#94A3B8"/><circle cx="92" cy="46" r="20" fill="#94A3B8"/>
+     <circle cx="28" cy="46" r="11" fill="#F9A8D4"/><circle cx="92" cy="46" r="11" fill="#F9A8D4"/>
+     <ellipse cx="60" cy="72" rx="36" ry="34" fill="#94A3B8"/><ellipse cx="60" cy="90" rx="22" ry="15" fill="#CBD5E1"/>
+     ${ojos(45, 75, 66)}<ellipse cx="60" cy="80" rx="9" ry="11" fill="#1E1B2E"/>${mejillas(36, 84, 82)}` },
+  pollito: { nombre: 'Pollito', fondo: '#CFFAFE', dibujo:
+    `<path d="M58 38q-2-14 8-18q-4 8 0 18z" fill="#EAB308"/><path d="M56 38q-10-10-18-6q8 2 12 8z" fill="#EAB308"/>
+     <ellipse cx="22" cy="84" rx="8" ry="14" transform="rotate(25 22 84)" fill="#FACC15"/><ellipse cx="98" cy="84" rx="8" ry="14" transform="rotate(-25 98 84)" fill="#FACC15"/>
+     <circle cx="60" cy="74" r="38" fill="#FDE047"/>${ojos(46, 74, 66)}
+     <path d="M52 76h16l-8 9z" fill="#F97316"/>${mejillas(36, 84, 80)}` },
+  unicornio: { nombre: 'Unicornio', fondo: '#F3E8FF', dibujo:
+    `<path d="M78 38q24 4 22 40q-6-12-16-16q4-12-6-24z" fill="#C084FC"/><path d="M84 52q14 6 14 26q-6-9-14-11z" fill="#F9A8D4"/>
+     <path d="M36 46l3-20 14 13zM84 46l-3-20-14 13z" fill="#fff" stroke="#E9D5FF" stroke-width="2"/>
+     <ellipse cx="60" cy="74" rx="36" ry="34" fill="#fff" stroke="#E9D5FF" stroke-width="2"/>
+     <path d="M54 42l6-32 6 32z" fill="#FCD34D"/><path d="M55.5 35l9-3M56.5 28l7-2.5M58 21l4-1.5" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+     <path d="M42 46q8-12 22-8q-12 2-16 12z" fill="#F9A8D4"/>
+     ${ojos(47, 73, 70)}<ellipse cx="60" cy="90" rx="15" ry="9" fill="#FCE7F3"/>
+     <circle cx="55" cy="89" r="1.8" fill="#DB2777"/><circle cx="65" cy="89" r="1.8" fill="#DB2777"/>${mejillas(37, 83, 82)}` },
 };
 
 

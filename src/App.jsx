@@ -239,10 +239,16 @@ export default function App() {
           primeraVez={!datos.perfil.apodo}
           apodoInicial={datos.perfil.apodo}
           monedaInicial={datos.perfil.moneda}
+          avatarInicial={datos.perfil.avatar}
           onCerrar={cerrar}
           onOtraCuenta={() => { cerrar(); f.salir(); }}
-          onGuardar={(apodo, moneda) => {
-            f.guardarPerfil({ ...datos.perfil, apodo, moneda: moneda || datos.perfil.moneda || 'COP', fecha_registro: datos.perfil.fecha_registro || fechaAhora() });
+          onGuardar={(apodo, moneda, avatar) => {
+            f.guardarPerfil({
+              ...datos.perfil, apodo,
+              moneda: moneda || datos.perfil.moneda || 'COP',
+              avatar: avatar ?? datos.perfil.avatar ?? '',
+              fecha_registro: datos.perfil.fecha_registro || fechaAhora(),
+            });
             if (datos.perfil.apodo) setAviso('Apodo actualizado.');
             cerrar();
           }}

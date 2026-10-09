@@ -427,6 +427,15 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .moneda-ok { width: 24px; height: 24px; border-radius: 50%; background: var(--primario); color: var(--primario-texto); display: grid; place-items: center; }
 .moneda-ok svg { width: 14px; height: 14px; stroke-width: 3; }
 .ventana__moneda { margin-top: 1rem; }
+.ventana__avatar { display: flex; flex-direction: column; align-items: center; gap: .4rem; margin-bottom: 1.1rem; }
+.ventana__avatar small { color: var(--texto-suave); font-size: .85rem; }
+.ventana__avatar-boton { position: relative; border: 0; padding: 0; background: none; border-radius: 50%; cursor: pointer; }
+.ventana__avatar-boton > :first-child { display: block; }
+.ventana__avatar-lapiz {
+  position: absolute; right: -2px; bottom: 2px; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--primario); color: var(--primario-texto); border: 3px solid var(--superficie); display: grid; place-items: center;
+}
+.ventana__avatar-lapiz svg { width: 14px; height: 14px; }
 .ajustes__ejemplo { margin-top: .6rem; }
 
 /* ===== Digital y efectivo ===== */
@@ -482,7 +491,7 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
   .nav__item { flex: 0; min-height: 66px; font-size: .74rem; }
   .nav__pie { display: flex; justify-content: center; }
   .nav__usuario { display: none; }
-  .avatares { grid-template-columns: repeat(5, 1fr); }
+  .avatares { grid-template-columns: repeat(4, 1fr); } /* 16 opciones: 4 filas parejas */
   .nav__avatar {
     width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700;
     background: linear-gradient(135deg, var(--lila), var(--primario)); color: #fff; font-family: var(--fuente-titulo);
