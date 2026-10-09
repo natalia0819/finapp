@@ -2,7 +2,7 @@
 // letra Bahnschrift Light Condensed, lila fuerte para encabezados y totales, lila suave para
 // las filas, amarillo para lo disponible, bordes finos y formato contable de pesos.
 // No depende del navegador: así se puede probar también en Node.
-import { calcularSaldos } from './movimientos';
+import { calcularSaldos, medioDe, TEXTO_MEDIO } from './movimientos';
 import { leerFecha } from './formato';
 import { datosMoneda } from './moneda';
 
@@ -121,7 +121,7 @@ function hojaPorMes(movimientos, espacios) {
 // ---------- Hoja 2: Movimientos (detalle) ----------
 function hojaMovimientos(movimientos, espacios) {
   const nombre = (id) => espacios.find((e) => e.id === id)?.nombre ?? '';
-  const encabezado = ['Fecha', 'Tipo', 'Espacio', 'Hacia (traslados)', 'Descripción', 'Entró', 'Salió']
+  const encabezado = ['Fecha', 'Tipo', 'Espacio', 'Hacia (traslados)', 'Descripción', 'Medio', 'Entró', 'Salió']
     .map((t) => texto(t, { backgroundColor: LILA_FUERTE, align: 'center', fontWeight: 'bold' }));
   const filas = [...movimientos].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((m) => {
     const fondo = { backgroundColor: LILA_SUAVE };
@@ -132,24 +132,25 @@ function hojaMovimientos(movimientos, espacios) {
       texto(nombre(m.espacio_id), fondo),
       texto(nombre(m.espacio_destino_id), fondo),
       texto(m.descripcion, fondo),
+      texto(TEXTO_MEDIO[medioDe(m)], fondo),
       m.tipo === 'ingreso' ? dinero(m.monto, fondo) : texto('', fondo),
       m.tipo === 'gasto' ? dinero(m.monto, fondo) : texto('', fondo),
     ];
   });
   const ultima = filas.length + 1;
   const totales = [
-    texto('TOTAL', { backgroundColor: LILA_FUERTE, columnSpan: 5, fontWeight: 'bold' }), null, null, null, null,
-    formula(`=SUM(F2:F${Math.max(2, ultima)})`, { backgroundColor: LILA_FUERTE, fontWeight: 'bold' }),
+    texto('TOTAL', { backgroundColor: LILA_FUERTE, columnSpan: 6, fontWeight: 'bold' }), null, null, null, null, null,
     formula(`=SUM(G2:G${Math.max(2, ultima)})`, { backgroundColor: LILA_FUERTE, fontWeight: 'bold' }),
+    formula(`=SUM(H2:H${Math.max(2, ultima)})`, { backgroundColor: LILA_FUERTE, fontWeight: 'bold' }),
   ];
   const disponible = [
-    texto('DISPONIBLE (entró − salió)', { backgroundColor: AMARILLO, columnSpan: 5, fontWeight: 'bold' }), null, null, null, null,
-    formula(`=F${ultima + 1}-G${ultima + 1}`, { backgroundColor: AMARILLO, fontWeight: 'bold', columnSpan: 2 }), null,
+    texto('DISPONIBLE (entró − salió)', { backgroundColor: AMARILLO, columnSpan: 6, fontWeight: 'bold' }), null, null, null, null, null,
+    formula(`=G${ultima + 1}-H${ultima + 1}`, { backgroundColor: AMARILLO, fontWeight: 'bold', columnSpan: 2 }), null,
   ];
   return {
     sheet: 'Movimientos',
     data: [encabezado, ...filas, totales, disponible],
-    columns: [{ width: 17 }, { width: 10 }, { width: 24 }, { width: 22 }, { width: 34 }, { width: 16 }, { width: 16 }],
+    columns: [{ width: 17 }, { width: 10 }, { width: 24 }, { width: 22 }, { width: 34 }, { width: 11 }, { width: 16 }, { width: 16 }],
     stickyRowsCount: 1,
   };
 }

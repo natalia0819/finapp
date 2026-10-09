@@ -5,6 +5,7 @@ import { obtenerToken } from './googleAuth';
 import { espaciosPredeterminados } from '../constants/espacios';
 import { fechaAhora } from './formato';
 import { datosMoneda } from './moneda';
+import { medioDe } from './movimientos';
 
 const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
@@ -12,7 +13,7 @@ const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 export const COLUMNAS = {
   Perfil: ['apodo', 'fecha_registro', 'avatar', 'moneda'],
   Espacios: ['id', 'nombre', 'color', 'icono', 'meta', 'activo', 'es_predeterminado', 'fecha_creacion'],
-  Movimientos: ['id', 'fecha', 'tipo', 'monto', 'espacio_id', 'espacio_destino_id', 'descripcion', 'grupo_id'],
+  Movimientos: ['id', 'fecha', 'tipo', 'monto', 'espacio_id', 'espacio_destino_id', 'descripcion', 'grupo_id', 'medio'],
 };
 
 /** Error con el código HTTP, para que la interfaz sepa qué hacer (401 = volver a conectar, 0 = sin internet). */
@@ -100,7 +101,7 @@ export async function crearHoja() {
       data: [
         { range: 'Perfil!A1:D1', values: [COLUMNAS.Perfil] },
         { range: 'Espacios!A1:H3', values: [COLUMNAS.Espacios, ...filasEspacios] },
-        { range: 'Movimientos!A1:H1', values: [COLUMNAS.Movimientos] },
+        { range: 'Movimientos!A1:I1', values: [COLUMNAS.Movimientos] },
       ],
     }),
   });
@@ -116,7 +117,7 @@ export async function crearHoja() {
 
 /** Lee perfil, espacios y movimientos en una sola llamada (y repara filas corridas, si las hay). */
 export async function leerDatos(id) {
-  const rangos = ['Perfil!A2:D2', 'Espacios!A2:I', 'Movimientos!A2:I']
+  const rangos = ['Perfil!A2:D2', 'Espacios!A2:I', 'Movimientos!A2:J']
     .map((r) => `ranges=${rango(r)}`).join('&');
   const datos = await llamar(`${SHEETS}/${id}/values:batchGet?${rangos}&valueRenderOption=UNFORMATTED_VALUE`);
   const [perfil, espaciosCrudos, movimientosCrudos] = datos.valueRanges.map((v) => v.values ?? []);
@@ -125,9 +126,10 @@ export async function leerDatos(id) {
   const arreglos = [];
   const corregir = (hoja, filas, estaCorrida) => filas.map((f, i) => {
     if (!estaCorrida(f)) return f;
-    const buena = f.slice(1, 9);
-    while (buena.length < 8) buena.push('');
-    arreglos.push({ range: `${hoja}!A${i + 2}:I${i + 2}`, values: [[...buena, '']] });
+    const n = COLUMNAS[hoja].length;
+    const buena = f.slice(1, n + 1);
+    while (buena.length < n) buena.push('');
+    arreglos.push({ range: `${hoja}!A${i + 2}:${letra(n + 1)}${i + 2}`, values: [[...buena, '']] });
     return buena;
   });
   const espacios = corregir('Espacios', espaciosCrudos, (f) => !f[0] && f[1] && String(f[3] ?? '').startsWith('#'));
@@ -204,11 +206,14 @@ export async function sincronizarCola(idHoja, cola, alCompletar) {
  */
 async function guardarFilas(idHoja, hoja, objetos, tabla, pestana) {
   const aFila = hoja === 'Espacios' ? espacioAFila : movimientoAFila;
+  const fin = letra(COLUMNAS[hoja].length); // última columna: H en Espacios, I en Movimientos
   const escrituras = [];
+  // Encabezado completo, por si la hoja es de antes de que existiera la columna "medio".
+  if (hoja === 'Movimientos') escrituras.push({ range: `Movimientos!A1:${fin}1`, values: [COLUMNAS.Movimientos] });
   const nuevos = [];
   for (const obj of objetos) {
     const indice = tabla.ids.indexOf(obj.id);
-    if (indice >= 1) escrituras.push({ range: `${hoja}!A${indice + 1}:H${indice + 1}`, values: [aFila(obj)] });
+    if (indice >= 1) escrituras.push({ range: `${hoja}!A${indice + 1}:${fin}${indice + 1}`, values: [aFila(obj)] });
     else nuevos.push(obj);
   }
 
@@ -226,7 +231,7 @@ async function guardarFilas(idHoja, hoja, objetos, tabla, pestana) {
     }
     nuevos.forEach((obj, i) => {
       const fila = primera + i;
-      escrituras.push({ range: `${hoja}!A${fila}:H${fila}`, values: [aFila(obj)] });
+      escrituras.push({ range: `${hoja}!A${fila}:${fin}${fila}`, values: [aFila(obj)] });
     });
   }
 
@@ -294,8 +299,11 @@ function filaAEspacio(f) {
 
 function movimientoAFila(m) {
   return [m.id, m.fecha, m.tipo, Number(m.monto), m.espacio_id, m.espacio_destino_id || '',
-    m.descripcion || '', m.grupo_id || ''];
+    m.descripcion || '', m.grupo_id || '', medioDe(m)];
 }
+
+/** Letra de una columna a partir de su número (1 = A, 9 = I). */
+const letra = (n) => String.fromCharCode(64 + n);
 
 function filaAMovimiento(f) {
   return {
@@ -307,6 +315,7 @@ function filaAMovimiento(f) {
     espacio_destino_id: String(f[5] ?? ''),
     descripcion: String(f[6] ?? ''),
     grupo_id: String(f[7] ?? ''),
+    medio: String(f[8] ?? '').toLowerCase() === 'efectivo' ? 'efectivo' : 'digital',
   };
 }
 
@@ -329,12 +338,12 @@ function formatoDinero() {
   const numero = m.decimales > 0 ? '#,##0.00' : '#,##0';
   return { type: 'CURRENCY', pattern: m.simboloDespues ? `${numero} "${m.simbolo}"` : `"${m.simbolo}" ${numero}` };
 }
-const ANCHO_TABLA = { Perfil: 4, Espacios: 8, Movimientos: 8 };
+const ANCHO_TABLA = { Perfil: 4, Espacios: 8, Movimientos: 9 };
 const COLUMNA_PESOS = { Espacios: 4, Movimientos: 3 }; // meta (E) y monto (D)
 const ANCHOS = {
   Perfil: [200, 170, 120, 90],
   Espacios: [110, 220, 90, 120, 130, 70, 140, 160],
-  Movimientos: [110, 160, 90, 130, 150, 170, 260, 110],
+  Movimientos: [110, 160, 90, 130, 150, 170, 260, 110, 90],
 };
 const OCULTAS = { Espacios: [0], Movimientos: [0, 7] }; // ids internos: la app los usa, la persona no los necesita ver
 

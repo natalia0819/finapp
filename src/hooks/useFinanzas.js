@@ -8,6 +8,7 @@ import { borrarLocal, cargarLocal, guardarLocal } from '../lib/almacenLocal';
 import { buscarHoja, calcularSaldos, crearHoja, darFormatoHoja, leerDatos, sincronizarCola } from '../lib/sheetsApi';
 import { cerrarSesion, obtenerToken, olvidarCuenta } from '../lib/googleAuth';
 import { fechaAhora, generarId } from '../lib/formato';
+import { calcularSaldosPorMedio, MEDIOS } from '../lib/movimientos';
 
 const VACIO = { perfil: { apodo: '', fecha_registro: '' }, espacios: [], movimientos: [] };
 
@@ -64,7 +65,7 @@ export function useFinanzas() {
         if (colaRef.current.length === 0) setDatos(nuevos); // no pisar cambios hechos mientras tanto
       }
             // Hojas creadas antes de que existiera el estilo: se les aplica una vez por dispositivo.
-      const marca = `fe_formato_v1_${id}`;
+      const marca = `fe_formato_v2_${id}`; // v2: columna "medio" en Movimientos
       if (!localStorage.getItem(marca)) {
         try {
           await darFormatoHoja(id);
@@ -150,18 +151,22 @@ export function useFinanzas() {
       (d) => ({ ...d, espacios: d.espacios.filter((e) => e.id !== id) }));
   }
 
-  /** Archiva un espacio; si tiene saldo, primero lo traslada al destino elegido. */
+  /** Archiva un espacio; si tiene saldo, primero lo traslada al destino elegido (lo digital como digital y el efectivo como efectivo). */
   function archivarEspacio(espacio, saldo, destinoId) {
     const archivado = { ...espacio, activo: false };
     const ops = [];
     const movs = [];
     if (saldo > 0 && destinoId) {
-      movs.push({
-        id: generarId(), fecha: fechaAhora(), tipo: 'traslado', monto: saldo,
-        espacio_id: espacio.id, espacio_destino_id: destinoId,
-        descripcion: `Saldo de ${espacio.nombre} al archivarlo`, grupo_id: '',
-      });
-      ops.push({ op: 'guardar', hoja: 'Movimientos', objetos: movs });
+      const porMedio = calcularSaldosPorMedio(datos.espacios, datos.movimientos)[espacio.id] ?? { digital: saldo, efectivo: 0 };
+      for (const medio of MEDIOS) {
+        if (porMedio[medio] <= 0) continue;
+        movs.push({
+          id: generarId(), fecha: fechaAhora(), tipo: 'traslado', monto: porMedio[medio],
+          espacio_id: espacio.id, espacio_destino_id: destinoId,
+          descripcion: `Saldo de ${espacio.nombre} al archivarlo`, grupo_id: '', medio,
+        });
+      }
+      if (movs.length) ops.push({ op: 'guardar', hoja: 'Movimientos', objetos: movs });
     }
     ops.push({ op: 'guardar', hoja: 'Espacios', objetos: [archivado] });
     encolar(ops, (d) => ({
@@ -182,9 +187,10 @@ export function useFinanzas() {
   }
 
   const saldos = useMemo(() => calcularSaldos(datos.espacios, datos.movimientos), [datos]);
+  const saldosMedio = useMemo(() => calcularSaldosPorMedio(datos.espacios, datos.movimientos), [datos]);
 
   return {
-    idHoja, datos, saldos, pendientes: cola.length, ultimaSync, sync,
+    idHoja, datos, saldos, saldosMedio, pendientes: cola.length, ultimaSync, sync,
     conectar, sincronizar, salir,
     guardarPerfil, guardarEspacio, eliminarEspacio, archivarEspacio,
     guardarMovimientos, eliminarMovimiento,

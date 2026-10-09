@@ -3,6 +3,11 @@ import { redondear } from './moneda';
 
 export const TEXTO_TIPO = { ingreso: 'Ingreso', gasto: 'Gasto', traslado: 'Traslado' };
 
+/** Cada movimiento es en digital o en efectivo. Los que no tienen medio (de antes) cuentan como digital. */
+export const MEDIOS = ['digital', 'efectivo'];
+export const TEXTO_MEDIO = { digital: 'Digital', efectivo: 'Efectivo' };
+export const medioDe = (m) => (m?.medio === 'efectivo' ? 'efectivo' : 'digital');
+
 /** Más reciente primero. El texto "AAAA-MM-DD HH:MM:SS" se ordena bien alfabéticamente. */
 export const ordenarRecientes = (movs) => [...movs].sort((a, b) => b.fecha.localeCompare(a.fecha));
 
@@ -74,17 +79,40 @@ export function calcularSaldos(espacios, movimientos) {
   return saldos;
 }
 
+/** Saldo de cada espacio separado por medio: { ahorro: { digital: 1000, efectivo: 200 }, ... } */
+export function calcularSaldosPorMedio(espacios, movimientos) {
+  const saldos = Object.fromEntries(espacios.map((e) => [e.id, { digital: 0, efectivo: 0 }]));
+  const sumar = (id, medio, v) => { if (id in saldos) saldos[id][medio] += v; };
+  for (const m of movimientos) {
+    const medio = medioDe(m);
+    if (m.tipo === 'ingreso') sumar(m.espacio_id, medio, m.monto);
+    else if (m.tipo === 'gasto') sumar(m.espacio_id, medio, -m.monto);
+    else if (m.tipo === 'traslado') {
+      sumar(m.espacio_id, medio, -m.monto);
+      sumar(m.espacio_destino_id, medio, m.monto);
+    }
+  }
+  for (const id in saldos) for (const medio of MEDIOS) saldos[id][medio] = redondear(saldos[id][medio]);
+  return saldos;
+}
+
 /**
- * Revisa si un cambio deja algún espacio en negativo.
+ * Revisa si un cambio deja algún espacio en negativo (en digital o en efectivo).
  * quitar: ids de movimientos que se eliminan o se reemplazan; poner: movimientos nuevos o editados.
  * Solo se bloquea si un espacio termina en negativo Y queda peor que antes
  * (así, si ya había un negativo viejo, se puede corregir con ingresos o traslados hacia él).
- * Devuelve [{ espacio, saldo }] con los espacios que quedarían mal (vacío = todo bien).
+ * Devuelve [{ espacio, medio, saldo }] con lo que quedaría mal (vacío = todo bien).
  */
 export function validarCambio(espacios, movimientos, quitar = [], poner = []) {
-  const antes = calcularSaldos(espacios, movimientos);
-  const despues = calcularSaldos(espacios, [...movimientos.filter((m) => !quitar.includes(m.id)), ...poner]);
-  return Object.keys(despues)
-    .filter((id) => despues[id] < 0 && despues[id] < antes[id])
-    .map((id) => ({ espacio: espacios.find((e) => e.id === id), saldo: despues[id] }));
+  const antes = calcularSaldosPorMedio(espacios, movimientos);
+  const despues = calcularSaldosPorMedio(espacios, [...movimientos.filter((m) => !quitar.includes(m.id)), ...poner]);
+  const problemas = [];
+  for (const id of Object.keys(despues)) {
+    for (const medio of MEDIOS) {
+      if (despues[id][medio] < 0 && despues[id][medio] < antes[id][medio]) {
+        problemas.push({ espacio: espacios.find((e) => e.id === id), medio, saldo: despues[id][medio] });
+      }
+    }
+  }
+  return problemas;
 }

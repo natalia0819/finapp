@@ -429,6 +429,25 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .ventana__moneda { margin-top: 1rem; }
 .ajustes__ejemplo { margin-top: .6rem; }
 
+/* ===== Digital y efectivo ===== */
+.segmentos--medio { grid-template-columns: 1fr 1fr; }
+.segmentos--medio button { min-height: 46px; display: flex; align-items: center; justify-content: center; gap: .45rem; font-weight: 600; }
+.medios { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .7rem; }
+.medio-chip {
+  display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .7rem; border-radius: 99px;
+  background: var(--superficie-2); font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.medio-chip svg { width: 17px; height: 17px; color: var(--primario); }
+.espacio__arriba { display: flex; align-items: center; justify-content: space-between; gap: .5rem; width: 100%; }
+.marca-medio { display: inline-grid; place-items: center; width: 30px; height: 26px; border-radius: 8px; background: var(--superficie-2); color: var(--primario); flex-shrink: 0; }
+.marca-medio svg { width: 17px; height: 17px; }
+.marca-medio--mini { width: auto; height: auto; background: none; margin-right: .3rem; vertical-align: -2px; }
+.marca-medio--mini svg { width: 14px; height: 14px; }
+.espacio__medios { display: flex; flex-direction: column; gap: .1rem; margin-top: .35rem; font-size: .8rem; color: var(--texto-suave); font-variant-numeric: tabular-nums; }
+.espacio__medios span { display: inline-flex; align-items: center; gap: .3rem; }
+.espacio__medios svg { width: 14px; height: 14px; color: var(--primario); }
+.ficha__medio { width: 13px; height: 13px; margin-right: .25rem; vertical-align: -2px; }
+
 /* ===== Piezas nuevas (todas las pantallas) ===== */
 .solo-pc { display: none; }
 .fecha-hoy { display: none; }
@@ -506,6 +525,8 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
   .balance__mes span:first-child strong { color: #BBF7D0; }
   .balance__mes span:last-child strong { color: #FECDD3; }
   .balance .ultimo { background: rgb(255 255 255 / .14); color: #fff; margin: 1.25rem 0 0; backdrop-filter: blur(4px); }
+  .balance .medio-chip { background: rgb(255 255 255 / .14); color: #fff; }
+  .balance .medio-chip svg { color: #fff; }
   :root[data-theme="dark"] .balance { background: linear-gradient(135deg, #6D28D9 0%, #4C1D95 50%, #2E1065 100%); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .balance { background: linear-gradient(135deg, #6D28D9 0%, #4C1D95 50%, #2E1065 100%); } }
 

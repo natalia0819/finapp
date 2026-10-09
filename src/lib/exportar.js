@@ -1,5 +1,5 @@
 // Exportar movimientos a Excel (.xlsx) o CSV, generados en el navegador (sin servidor).
-import { TEXTO_TIPO } from './movimientos';
+import { medioDe, TEXTO_MEDIO, TEXTO_TIPO } from './movimientos';
 import { fechaAhora } from './formato';
 import { codigoMoneda } from './moneda';
 
@@ -15,10 +15,11 @@ function filas(movimientos, espacios) {
       espacio: nombre(m.espacio_id),
       destino: nombre(m.espacio_destino_id),
       descripcion: m.descripcion,
+      medio: TEXTO_MEDIO[medioDe(m)],
     }));
 }
 
-const encabezados = () => ['Fecha', 'Tipo', `Monto (${codigoMoneda()})`, 'Espacio', 'Espacio destino', 'Descripción'];
+const encabezados = () => ['Fecha', 'Tipo', `Monto (${codigoMoneda()})`, 'Espacio', 'Espacio destino', 'Descripción', 'Medio'];
 
 function descargar(blob, nombre) {
   const url = URL.createObjectURL(blob);

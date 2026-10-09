@@ -2,7 +2,8 @@
 import { ArrowRight } from 'lucide-react';
 import { iconoDe } from '../constants/espacios';
 import { fechaCorta, hora, pesos } from '../lib/formato';
-import { signo, TEXTO_TIPO } from '../lib/movimientos';
+import { medioDe, signo, TEXTO_TIPO } from '../lib/movimientos';
+import { MarcaMedio } from './Medio';
 
 export default function FilaMovimiento({ mov, espacios, onAbrir, soloHora, relativoA }) {
   const buscar = (id) => espacios.find((e) => e.id === id);
@@ -19,6 +20,7 @@ export default function FilaMovimiento({ mov, espacios, onAbrir, soloHora, relat
         <span className="mov__texto">
           <strong>{mov.descripcion || TEXTO_TIPO[mov.tipo]}</strong>
           <small>
+            <MarcaMedio medio={medioDe(mov)} className="marca-medio--mini" />
             {mov.tipo === 'traslado'
               ? <>{espacio?.nombre ?? '—'} <ArrowRight className="flechita" aria-label="a" /> {destino?.nombre ?? '—'}</>
               : espacio?.nombre ?? 'Espacio eliminado'}

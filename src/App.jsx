@@ -145,6 +145,7 @@ export default function App() {
             espacios={datos.espacios}
             movimientos={datos.movimientos}
             saldos={saldos}
+            saldosMedio={f.saldosMedio}
             onRegistrar={(tipo) => setModal({ tipo: 'movimiento', tipoInicial: tipo })}
             onAbrirEspacio={(espacio) => setModal({ tipo: 'espacio', espacio })}
             onNuevoEspacio={() => setModal({ tipo: 'espacio', espacio: null })}
@@ -197,6 +198,7 @@ export default function App() {
           movimiento={modal.movimiento}
           espacios={datos.espacios}
           saldos={saldos}
+          saldosMedio={f.saldosMedio}
           movimientos={datos.movimientos}
           onCerrar={cerrar}
           onGuardar={(movs) => {

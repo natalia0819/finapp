@@ -5,6 +5,8 @@ import FilaMovimiento from './FilaMovimiento';
 import { fechaAhora, pesos } from '../lib/formato';
 import { filtrar, ordenarRecientes, resumen } from '../lib/movimientos';
 import { Avatar } from '../constants/avatares';
+import { IconoMedio } from './Medio';
+import { TEXTO_MEDIO } from '../lib/movimientos';
 
 
 function hoyTexto() {
@@ -12,9 +14,11 @@ function hoyTexto() {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-export default function Inicio({ apodo, avatar, onCambiarAvatar, espacios, movimientos, saldos, onRegistrar, onAbrirEspacio, onNuevoEspacio, onAbrirMovimiento, onVerTodos }) {
+export default function Inicio({ apodo, avatar, onCambiarAvatar, espacios, movimientos, saldos, saldosMedio = {}, onRegistrar, onAbrirEspacio, onNuevoEspacio, onAbrirMovimiento, onVerTodos }) {
   const activos = espacios.filter((e) => e.activo);
   const total = activos.reduce((suma, e) => suma + (saldos[e.id] ?? 0), 0);
+  // Cuánto de ese total está en efectivo y cuánto en digital.
+  const porMedio = (medio) => activos.reduce((suma, e) => suma + (saldosMedio[e.id]?.[medio] ?? 0), 0);
   const recientes = ordenarRecientes(movimientos).slice(0, 3);
   const ultimo = recientes[0];
   const mes = resumen(filtrar(movimientos, { mes: fechaAhora().slice(0, 7) }));
@@ -36,6 +40,13 @@ export default function Inicio({ apodo, avatar, onCambiarAvatar, espacios, movim
           <p className="balance__etiqueta">Dinero total</p>
           <p className="total">{pesos(total)}</p>
           <p className="total__nota">en {activos.length} {activos.length === 1 ? 'espacio' : 'espacios'}</p>
+          <div className="medios">
+            {['efectivo', 'digital'].map((m) => (
+              <span key={m} className="medio-chip" title={TEXTO_MEDIO[m]}>
+                <IconoMedio medio={m} /><span className="solo-lector">{TEXTO_MEDIO[m]}:</span> {pesos(porMedio(m))}
+              </span>
+            ))}
+          </div>
           <div className="balance__mes" aria-label="Este mes">
             <span><small>Entró este mes</small><strong>+{pesos(mes.entro)}</strong></span>
             <span><small>Salió este mes</small><strong>−{pesos(mes.salio)}</strong></span>
@@ -61,7 +72,7 @@ export default function Inicio({ apodo, avatar, onCambiarAvatar, espacios, movim
       <section className="inicio__espacios" aria-labelledby="titulo-espacios">
         <h2 id="titulo-espacios">Mis espacios</h2>
         <div className="rejilla">
-          {activos.map((e) => <TarjetaEspacio key={e.id} espacio={e} saldo={saldos[e.id] ?? 0} onAbrir={onAbrirEspacio} />)}
+          {activos.map((e) => <TarjetaEspacio key={e.id} espacio={e} saldo={saldos[e.id] ?? 0} porMedio={saldosMedio[e.id]} onAbrir={onAbrirEspacio} />)}
           <button className="espacio espacio--nuevo" onClick={onNuevoEspacio}>
             <span className="espacio__icono"><Plus aria-hidden="true" /></span>
             <span className="espacio__nombre">Nuevo espacio</span>

@@ -1,8 +1,9 @@
 // Elegir un espacio tocando su ficha (botones de radio reales, accesibles con teclado).
 import { iconoDe } from '../constants/espacios';
 import { pesos } from '../lib/formato';
+import { IconoMedio } from './Medio';
 
-export default function SelectorEspacio({ nombre, leyenda, espacios, valor, onCambio, saldos, error, excluir }) {
+export default function SelectorEspacio({ nombre, leyenda, espacios, valor, onCambio, saldos, medio, error, excluir }) {
   const lista = espacios.filter((e) => e.id !== excluir);
   return (
     <fieldset className="selector" aria-describedby={error ? `${nombre}-error` : undefined}>
@@ -18,7 +19,7 @@ export default function SelectorEspacio({ nombre, leyenda, espacios, valor, onCa
               <span className="ficha__icono"><Icono aria-hidden="true" /></span>
               <span className="ficha__texto">
                 <span>{e.nombre}</span>
-                {saldos && <small className={saldo < 0 ? 'negativo' : ''}>{pesos(saldo ?? 0)}</small>}
+                {saldos && <small className={saldo < 0 ? 'negativo' : ''}>{medio && <IconoMedio medio={medio} className="ficha__medio" />}{pesos(saldo ?? 0)}</small>}
               </span>
             </label>
           );

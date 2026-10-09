@@ -5,8 +5,16 @@ import Hoja from './Hoja';
 import Confirmar from './Confirmar';
 import CampoMonto from './CampoMonto';
 import SelectorEspacio from './SelectorEspacio';
+import SelectorMedio from './Medio';
 import { fechaAInput, fechaAhora, fechaCorta, generarId, inputAFecha, pesos } from '../lib/formato';
-import { validarCambio } from '../lib/movimientos';
+import { medioDe, TEXTO_MEDIO, validarCambio } from '../lib/movimientos';
+
+// El último medio usado (digital o efectivo) viene marcado la próxima vez.
+const CLAVE_MEDIO = 'fe_medio';
+function ultimoMedio() {
+  try { return localStorage.getItem(CLAVE_MEDIO) === 'efectivo' ? 'efectivo' : 'digital'; } catch { return 'digital'; }
+}
+const enMedio = (medio) => `en ${TEXTO_MEDIO[medio].toLowerCase()}`; // "en efectivo", "en digital"
 
 const TITULOS = {
   ingreso: { nuevo: 'Registrar ingreso', editar: 'Editar ingreso' },
@@ -14,13 +22,14 @@ const TITULOS = {
   traslado: { nuevo: 'Trasladar entre espacios', editar: 'Editar traslado' },
 };
 
-export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, espacios, saldos, movimientos = [], onGuardar, onEliminar, onCerrar }) {
+export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, espacios, saldos, saldosMedio, movimientos = [], onGuardar, onEliminar, onCerrar }) {
   const editando = Boolean(movimiento);
   const [tipo, setTipo] = useState(movimiento?.tipo ?? tipoInicial);
   const [monto, setMonto] = useState(movimiento?.monto ?? '');
   const [espacioId, setEspacioId] = useState(movimiento?.espacio_id ?? '');
   const [destinoId, setDestinoId] = useState(movimiento?.espacio_destino_id ?? '');
   const [descripcion, setDescripcion] = useState(movimiento?.descripcion ?? '');
+  const [medio, setMedio] = useState(() => (movimiento ? medioDe(movimiento) : ultimoMedio()));
   const [fecha, setFecha] = useState(movimiento?.fecha ?? null); // null = "ahora" al guardar
   const [cambiandoFecha, setCambiandoFecha] = useState(false);
   const [repartir, setRepartir] = useState(false);
@@ -32,12 +41,17 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
   const opciones = espacios.filter((e) => e.activo || e.id === movimiento?.espacio_id || e.id === movimiento?.espacio_destino_id);
   const activos = espacios.filter((e) => e.activo);
 
-  // Saldo disponible: al editar un gasto o traslado, su propio monto "vuelve" al espacio de origen.
+  // Saldo disponible en el medio elegido (digital o efectivo).
+  // Al editar un gasto o traslado, su propio monto "vuelve" al espacio de origen.
   const disponibles = useMemo(() => {
-    const copia = { ...saldos };
-    if (movimiento && movimiento.tipo !== 'ingreso' && movimiento.espacio_id in copia) copia[movimiento.espacio_id] += movimiento.monto;
+    const copia = saldosMedio
+      ? Object.fromEntries(Object.entries(saldosMedio).map(([id, s]) => [id, s[medio] ?? 0]))
+      : { ...saldos };
+    if (movimiento && movimiento.tipo !== 'ingreso' && medioDe(movimiento) === medio && movimiento.espacio_id in copia) {
+      copia[movimiento.espacio_id] += movimiento.monto;
+    }
     return copia;
-  }, [saldos, movimiento]);
+  }, [saldos, saldosMedio, movimiento, medio]);
 
   const totalRepartido = Object.values(reparto).reduce((s, v) => s + (Number(v) || 0), 0);
   const diferencia = (Number(monto) || 0) - totalRepartido;
@@ -71,10 +85,10 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
   // Mensaje cuando un cambio dejaría algún espacio en negativo.
   function textoNegativo(problemas, alEliminar = false) {
     const [p] = problemas;
-    if (!alEliminar && saleDe && problemas.length === 1 && p.espacio?.id === espacioId) {
-      return `En ${p.espacio.nombre} solo hay ${pesos(Math.max(0, disponibles[espacioId] ?? 0))}. No puedes sacar más de eso.`;
+    if (!alEliminar && saleDe && problemas.length === 1 && p.espacio?.id === espacioId && p.medio === medio) {
+      return `En ${p.espacio.nombre} solo hay ${pesos(Math.max(0, disponibles[espacioId] ?? 0))} ${enMedio(medio)}. No puedes sacar más de eso.`;
     }
-    const lista = problemas.map((x) => `${x.espacio?.nombre ?? 'Un espacio'} quedaría en ${pesos(x.saldo)}`).join(' y ');
+    const lista = problemas.map((x) => `${x.espacio?.nombre ?? 'Un espacio'} quedaría en ${pesos(x.saldo)} ${enMedio(x.medio)}`).join(' y ');
     return `${alEliminar ? 'Si lo eliminas, ' : ''}${lista}. Un espacio no puede quedar en negativo: primero ajusta los gastos o traslados que usan esa plata.`;
   }
 
@@ -83,6 +97,7 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
     const movs = construir();
     const problemas = validarCambio(espacios, movimientos, movimiento ? [movimiento.id] : [], movs);
     if (problemas.length) { setErrores({ monto: textoNegativo(problemas) }); return; }
+    try { localStorage.setItem(CLAVE_MEDIO, medio); } catch { /* sin almacenamiento: no pasa nada */ }
     onGuardar(movs);
   }
 
@@ -102,7 +117,7 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
         .filter((e) => Number(reparto[e.id]) > 0)
         .map((e) => ({
           id: generarId(), fecha: cuando, tipo: 'ingreso', monto: Number(reparto[e.id]),
-          espacio_id: e.id, espacio_destino_id: '', descripcion: texto, grupo_id: grupo,
+          espacio_id: e.id, espacio_destino_id: '', descripcion: texto, grupo_id: grupo, medio,
         }));
       return movs;
     }
@@ -115,6 +130,7 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
       espacio_destino_id: tipo === 'traslado' ? destinoId : '',
       descripcion: texto,
       grupo_id: movimiento?.grupo_id ?? '',
+      medio,
     }];
   }
 
@@ -145,6 +161,8 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
 
       <CampoMonto id="monto" etiqueta={repartir ? 'Monto total' : 'Monto'} valor={monto}
         onCambio={(v) => { setMonto(v); setErrores((x) => ({ ...x, monto: undefined })); }} error={errores.monto} />
+
+      <SelectorMedio valor={medio} onCambio={(m) => { setMedio(m); setErrores((x) => ({ ...x, monto: undefined })); }} />
 
       {tipo === 'ingreso' && !editando && (
         <label className="interruptor">
@@ -182,6 +200,7 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
           valor={espacioId}
           onCambio={(id) => { setEspacioId(id); setErrores((x) => ({ ...x, espacio: undefined })); }}
           saldos={saleDe ? disponibles : undefined}
+          medio={medio}
           error={errores.espacio}
         />
       )}
@@ -194,7 +213,7 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
       {superaSaldo && (
         <p className="advertencia advertencia--error" role="status">
           <TriangleAlert aria-hidden="true" />
-          En este espacio solo hay {pesos(Math.max(0, disponibles[espacioId] ?? 0))}. No puedes sacar más de eso.
+          En este espacio solo hay {pesos(Math.max(0, disponibles[espacioId] ?? 0))} {enMedio(medio)}. No puedes sacar más de eso.
         </p>
       )}
 
