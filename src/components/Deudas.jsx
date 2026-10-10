@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronRight, CircleCheck, HandCoins, Plus } from 'lucide-react';
 import DetalleDeuda from './DetalleDeuda';
 import { pesos } from '../lib/formato';
-import { agruparDeudas, textoLimite } from '../lib/deudas';
+import { agruparDeudas, textoPago } from '../lib/deudas';
 
 const CUANTOS = 3; // deudas visibles por sección antes de "Ver más"
 const CLAVE_ABIERTAS = 'fe_deudas_abiertas';
@@ -106,7 +106,10 @@ export default function Deudas({ deudas, abonos, espacios, movimientos, seleccio
                         <span className="barra" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Avance de ${deuda.nombre}`}>
                           <span style={{ width: `${pct}%` }} />
                         </span>
-                        <small><span>{pct}{' '}% de {pesos(t)}</span><span>{id === 'pagadas' ? 'Saldada' : textoLimite(deuda.fecha_limite, deuda.tipo)}</span></small>
+                        <small><span>{pct}{' '}% de {pesos(t)}</span>{id === 'pagadas' ? <span>Saldada</span> : (() => {
+                          const p = textoPago(deuda, abonos);
+                          return <span className={p.atrasado ? 'fp-rojo' : ''}>{p.texto}</span>;
+                        })()}</small>
                       </button>
                     ))}
                     {items.length > CUANTOS && (

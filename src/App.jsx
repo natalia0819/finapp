@@ -280,6 +280,7 @@ export default function App() {
           espacios={datos.espacios}
           saldosMedio={f.saldosMedio}
           movimientos={datos.movimientos}
+          abonos={datos.abonos}
           onCerrar={cerrar}
           onGuardar={(deuda, mov) => {
             f.guardarDeuda(deuda, mov);

@@ -512,6 +512,7 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .detalle-deuda__datos div { background: var(--superficie-2); border-radius: 12px; padding: .5rem .7rem; display: flex; flex-direction: column; min-width: 0; }
 .detalle-deuda__datos small { color: var(--texto-suave); }
 .detalle-deuda__datos b { font-variant-numeric: tabular-nums; }
+.detalle-deuda__dato-ancho { grid-column: 1 / -1; }
 .detalle-deuda__nota { display: flex; gap: .4rem; align-items: flex-start; margin: 0; font-size: .88rem; color: var(--texto-suave); }
 .detalle-deuda__nota svg { width: 16px; height: 16px; margin-top: 2px; }
 .detalle-deuda__acciones { display: grid; gap: .6rem; }
@@ -519,6 +520,17 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .detalle-deuda__subtitulo { font-size: 1.1rem; margin: 0 0 .6rem; }
 .segmentos--deuda { grid-template-columns: 1fr 1fr; }
 .segmentos--deuda button { min-height: 44px; font-size: .95rem; }
+/* Fecha de pago: Sin fecha / Una vez / Cada mes */
+.segmentos--fp button { min-height: 42px; font-size: .92rem; }
+.campo > .campo__sub { font-weight: 500; font-size: .88rem; color: var(--texto-suave); margin-top: .2rem; }
+.dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: .3rem; }
+.dias button { height: 32px; border-radius: 10px; border: 1px solid var(--borde); background: var(--superficie); color: var(--texto); font: inherit; font-size: .9rem; cursor: pointer; }
+.dias button.sel { background: var(--primario); border-color: var(--primario); color: #fff; font-weight: 700; }
+.dia-elegido { display: flex; align-items: center; gap: .7rem; padding: .65rem .85rem; border-radius: var(--radio-m); background: var(--superficie-2); }
+.dia-elegido > svg { width: 22px; height: 22px; color: var(--primario); flex-shrink: 0; }
+.dia-elegido > span { flex: 1; display: grid; gap: .1rem; }
+.dia-elegido small { color: var(--texto-suave); font-size: .85rem; }
+.fp-rojo { color: var(--negativo); font-weight: 700; }
 .info-deuda { --c: var(--negativo); display: flex; gap: .7rem; align-items: center; padding: .8rem 1rem; border-radius: 14px; background: var(--superficie-2); }
 .info-deuda--me { --c: var(--positivo); }
 .info-deuda__ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 15%, var(--superficie)); color: var(--c); flex-shrink: 0; }

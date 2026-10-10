@@ -5,12 +5,12 @@
 import { calcularSaldos, medioDe, TEXTO_MEDIO } from './movimientos';
 
 import { datosMoneda } from './moneda';
-import { resumenDeuda, TIPOS_DEUDA } from './deudas';
+import { describirFechaPago, leerFechaPago, resumenDeuda, TIPOS_DEUDA } from './deudas';
 
 const LILA_FUERTE = '#D5ABFF';
 const LILA_SUAVE = '#EAD5FF';
-const AMARILLO = '#FFFFAB';
-const AMARILLO_TOTAL = '#FFFFAB';
+const AMARILLO = '#FFF4CC'; // crema mantequilla: combina con el lila
+const AMARILLO_TOTAL = '#FFF4CC';
 const FUENTE = 'Bahnschrift Light Condensed';
 // Formato contable de Excel con el símbolo y los decimales de la moneda elegida.
 function formatoExcel() {
@@ -197,12 +197,13 @@ function hojaEspacios(espacios, saldos) {
 function hojaDeudas(deudas, abonos, espacios, movimientos) {
   const titulo = (t) => texto(t, { backgroundColor: LILA_FUERTE, align: 'center', fontWeight: 'bold' });
   const fondo = { backgroundColor: LILA_SUAVE };
-  const encabezado = ['Deuda', 'Tipo', 'Total', 'Abonado', 'Pendiente', 'Avance', 'Fecha límite', 'Nota', 'Estado'].map(titulo);
+  const encabezado = ['Deuda', 'Tipo', 'Total', 'Abonado', 'Pendiente', 'Avance', 'Fecha de pago', 'Nota', 'Estado'].map(titulo);
   const orden = [...deudas].sort((a, b) => (a.tipo === b.tipo ? a.fecha.localeCompare(b.fecha) : a.tipo === 'debo' ? -1 : 1));
   const filas = orden.map((d, i) => {
     const r = i + 2;
     const res = resumenDeuda(d, abonos);
-    const limite = d.fecha_limite ? leerFecha(`${d.fecha_limite} 00:00:00`) : null;
+    const fp = leerFechaPago(d.fecha_limite);
+    const limite = fp.modo === 'una' ? leerFecha(`${fp.fecha} 00:00:00`) : null;
     return [
       texto(d.nombre, fondo),
       texto(TIPOS_DEUDA[d.tipo], fondo),
@@ -210,7 +211,7 @@ function hojaDeudas(deudas, abonos, espacios, movimientos) {
       dinero(res.abonado, fondo),
       formula(`=MAX(0,C${r}-D${r})`, fondo),
       { ...base, ...fondo, type: 'Formula', value: `=IF(C${r}>0,D${r}/C${r},"")`, format: '0%', align: 'center' },
-      limite ? { ...base, ...fondo, type: Date, value: limite, format: 'dd/mm/yyyy' } : texto('', fondo),
+      limite ? { ...base, ...fondo, type: Date, value: limite, format: 'dd/mm/yyyy' } : texto(fp.modo === 'mes' ? describirFechaPago(d.fecha_limite) : '', fondo),
       texto(d.nota, fondo),
       texto(res.pagada ? 'Saldada' : 'Activa', fondo),
     ];

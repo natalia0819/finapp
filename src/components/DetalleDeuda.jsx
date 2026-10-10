@@ -3,7 +3,7 @@
 import { ChevronLeft, HandCoins, Pencil, Plus, StickyNote, TrendingUp } from 'lucide-react';
 import { iconoDe } from '../constants/espacios';
 import { fechaCorta, pesos } from '../lib/formato';
-import { fechaDia, registrosDe, resumenDeuda, TIPOS_DEUDA } from '../lib/deudas';
+import { describirFechaPago, diaCorto, proximoPago, registrosDe, resumenDeuda, TIPOS_DEUDA } from '../lib/deudas';
 import { medioDe } from '../lib/movimientos';
 import { MarcaMedio } from './Medio';
 
@@ -11,6 +11,10 @@ export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, con
   const r = resumenDeuda(deuda, abonos);
   const historial = registrosDe(deuda, abonos);
   const meDeben = deuda.tipo === 'me_deben';
+  const prox = r.pagada ? null : proximoPago(deuda, abonos);
+  let fechaPago = describirFechaPago(deuda.fecha_limite);
+  if (prox?.modo === 'mes') fechaPago += prox.atrasado ? ` · atrasado desde ${diaCorto(prox.fecha)}` : ` · próximo ${diaCorto(prox.fecha)}`;
+  else if (prox?.atrasado) fechaPago += ' · atrasado';
 
   /** Texto de la segunda línea de cada registro: de qué espacio salió o a cuál entró. */
   function lugar(reg, mov, espacio) {
@@ -40,8 +44,7 @@ export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, con
         <div className="detalle-deuda__datos">
           <div><small>Total</small><b>{pesos(r.total)}</b></div>
           <div><small>{meDeben ? 'Te han pagado' : 'Abonado'}</small><b className="positivo">{pesos(r.abonado)}</b></div>
-          <div><small>Desde</small><b>{fechaDia(deuda.fecha)}</b></div>
-          <div><small>Fecha límite</small><b>{deuda.fecha_limite ? fechaDia(deuda.fecha_limite) : 'Sin fecha'}</b></div>
+          <div className="detalle-deuda__dato-ancho"><small>Fecha de pago</small><b className={prox?.atrasado ? 'fp-rojo' : ''}>{fechaPago}</b></div>
         </div>
         {deuda.nota && <p className="detalle-deuda__nota"><StickyNote aria-hidden="true" /> {deuda.nota}</p>}
       </div>

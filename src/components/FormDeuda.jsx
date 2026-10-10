@@ -1,7 +1,7 @@
 // Crear o editar una deuda (lo que debo / lo que me deben).
 // Al crearla, la plata puede entrar a un espacio (me prestaron) o salir de uno (presté).
 import { useMemo, useState } from 'react';
-import { Check, Trash2 } from 'lucide-react';
+import { CalendarDays, Check, Trash2 } from 'lucide-react';
 import Hoja from './Hoja';
 import Confirmar from './Confirmar';
 import CampoMonto from './CampoMonto';
@@ -9,10 +9,11 @@ import SelectorEspacio from './SelectorEspacio';
 import SelectorMedio from './Medio';
 import { fechaAhora, generarId, pesos } from '../lib/formato';
 import { TEXTO_MEDIO, validarCambio } from '../lib/movimientos';
+import { diaCorto, guardarFechaPago, leerFechaPago, proximoPago } from '../lib/deudas';
 
 const enMedio = (medio) => `en ${TEXTO_MEDIO[medio].toLowerCase()}`;
 
-export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimientos = [], onGuardar, onEliminar, onCerrar }) {
+export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimientos = [], abonos = [], onGuardar, onEliminar, onCerrar }) {
   const editando = Boolean(deuda);
   const [tipo, setTipo] = useState(deuda?.tipo ?? 'debo');
   const [nombre, setNombre] = useState(deuda?.nombre ?? '');
@@ -20,7 +21,11 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
   const [conectar, setConectar] = useState(false);
   const [medio, setMedio] = useState('digital');
   const [espacioId, setEspacioId] = useState('');
-  const [limite, setLimite] = useState(deuda?.fecha_limite ?? '');
+  const fpInicial = leerFechaPago(deuda?.fecha_limite);
+  const [modoFecha, setModoFecha] = useState(fpInicial.modo);
+  const [fechaUna, setFechaUna] = useState(fpInicial.fecha ?? '');
+  const [diaMes, setDiaMes] = useState(fpInicial.dia ?? null);
+  const [eligiendoDia, setEligiendoDia] = useState(!fpInicial.dia); // la cuadrícula se recoge al elegir el día
   const [nota, setNota] = useState(deuda?.nota ?? '');
   const [errores, setErrores] = useState({});
   const [borrar, setBorrar] = useState(false);
@@ -38,6 +43,8 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
     const limpio = nombre.trim();
     if (!limpio) e.nombre = tipo === 'debo' ? 'Escribe qué es o a quién le debes.' : 'Escribe quién te debe o por qué.';
     if (!monto || monto <= 0) e.monto = 'Escribe un monto mayor a $ 0.';
+    if (modoFecha === 'una' && !fechaUna) e.fecha = 'Elige la fecha del pago.';
+    if (modoFecha === 'mes' && !diaMes) e.fecha = 'Elige el día del mes.';
     if (!editando && conectar && !espacioId) e.espacio = sale ? 'Elige de qué espacio salió.' : 'Elige a qué espacio entró.';
     let mov = null;
     if (!Object.keys(e).length && !editando && conectar) {
@@ -59,7 +66,7 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
       tipo,
       monto: Number(monto),
       fecha: deuda?.fecha ?? fechaAhora(),
-      fecha_limite: limite,
+      fecha_limite: guardarFechaPago(modoFecha, { fecha: fechaUna, dia: diaMes }),
       nota: nota.trim(),
       movimiento_id: deuda?.movimiento_id ?? (mov ? mov.id : ''),
     }, mov);
@@ -87,7 +94,7 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
       <div className="campo">
         <label htmlFor="deuda-nombre">{tipo === 'debo' ? '¿Qué es o a quién le debes?' : '¿Quién te debe?'}</label>
         <input id="deuda-nombre" className="entrada" value={nombre} maxLength={60} onChange={(e) => setNombre(e.target.value)}
-          placeholder={tipo === 'debo' ? 'Ej.: Tarjeta de crédito, préstamo' : 'Ej.: Favor a Laura'}
+          placeholder={tipo === 'debo' ? 'Ej.: Tarjeta de crédito, préstamo' : ''}
           aria-invalid={Boolean(errores.nombre)} />
         {errores.nombre && <small className="error">{errores.nombre}</small>}
       </div>
@@ -122,8 +129,41 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
       )}
 
       <div className="campo">
-        <label htmlFor="deuda-limite">Fecha de corte</label>
-        <input id="deuda-limite" type="date" className="entrada" value={limite} onChange={(e) => setLimite(e.target.value)} />
+        <span className="campo__etiqueta" id="etiqueta-fecha-pago">Fecha de pago</span>
+        <div className="segmentos segmentos--fp" role="radiogroup" aria-labelledby="etiqueta-fecha-pago">
+          {[['sin', 'Sin fecha'], ['una', 'Una vez'], ['mes', 'Cada mes']].map(([id, texto]) => (
+            <button key={id} type="button" role="radio" aria-checked={modoFecha === id}
+              onClick={() => { setModoFecha(id); setErrores((x) => ({ ...x, fecha: undefined })); }}>{texto}</button>
+          ))}
+        </div>
+        {modoFecha === 'una' && (
+          <input id="deuda-limite" type="date" className="entrada" aria-label="Fecha del pago" value={fechaUna}
+            onChange={(e) => { setFechaUna(e.target.value); setErrores((x) => ({ ...x, fecha: undefined })); }} />
+        )}
+        {modoFecha === 'mes' && (eligiendoDia || !diaMes) && (
+          <>
+            <span className="campo__sub" id="etiqueta-dia">¿Qué día del mes?</span>
+            <div className="dias" role="radiogroup" aria-labelledby="etiqueta-dia">
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                <button key={d} type="button" role="radio" aria-checked={diaMes === d} className={diaMes === d ? 'sel' : ''}
+                  onClick={() => { setDiaMes(d); setEligiendoDia(false); setErrores((x) => ({ ...x, fecha: undefined })); }}>{d}</button>
+              ))}
+            </div>
+          </>
+        )}
+        {modoFecha === 'mes' && diaMes && !eligiendoDia && (
+          <div className="dia-elegido">
+            <CalendarDays aria-hidden="true" />
+            <span>
+              <b>El {diaMes} de cada mes</b>
+              <small>
+                Próximo pago: {diaCorto(proximoPago({ id: deuda?.id ?? '', fecha: deuda?.fecha ?? fechaAhora(), fecha_limite: `cada mes el ${diaMes}` }, abonos).fecha)}
+              </small>
+            </span>
+            <button type="button" className="enlace" onClick={() => setEligiendoDia(true)}>Cambiar</button>
+          </div>
+        )}
+        {errores.fecha && <small className="error">{errores.fecha}</small>}
       </div>
 
       <div className="campo">
