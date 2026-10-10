@@ -1,10 +1,11 @@
 // Navegación: barra inferior en el celular, riel compacto en laptops y barra lateral completa en pantallas grandes.
-import { LayoutGrid, ListOrdered, Settings } from 'lucide-react';
+import { LayoutGrid, ListOrdered, Receipt, Settings } from 'lucide-react';
 import { Avatar } from '../constants/avatares';
 
 const PESTANAS = [
   { id: 'inicio', texto: 'Inicio', Icono: LayoutGrid },
   { id: 'movimientos', texto: 'Movimientos', Icono: ListOrdered },
+  { id: 'deudas', texto: 'Deudas', Icono: Receipt },
   { id: 'ajustes', texto: 'Ajustes', Icono: Settings },
 ];
 

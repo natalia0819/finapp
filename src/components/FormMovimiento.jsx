@@ -22,7 +22,7 @@ const TITULOS = {
   traslado: { nuevo: 'Trasladar entre espacios', editar: 'Editar traslado' },
 };
 
-export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, espacios, saldos, saldosMedio, movimientos = [], onGuardar, onEliminar, onCerrar }) {
+export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, espacios, saldos, saldosMedio, movimientos = [], deDeuda = '', onGuardar, onEliminar, onCerrar }) {
   const editando = Boolean(movimiento);
   const [tipo, setTipo] = useState(movimiento?.tipo ?? tipoInicial);
   const [monto, setMonto] = useState(movimiento?.monto ?? '');
@@ -132,6 +132,29 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
       grupo_id: movimiento?.grupo_id ?? '',
       medio,
     }];
+  }
+
+  // Movimiento que nació de una deuda (abono o préstamo): se cambia desde Deudas para que todo cuadre.
+  if (deDeuda) {
+    return (
+      <Hoja titulo="Movimiento de una deuda" onCerrar={onCerrar}
+        pie={<button type="button" className="boton boton--peligro boton--flex" onClick={pedirEliminar}><Trash2 aria-hidden="true" /> Eliminar</button>}>
+        <p className="advertencia" role="status">
+          <TriangleAlert aria-hidden="true" />
+          <span>Este movimiento es parte de la deuda <b>{deDeuda}</b>. Para cambiarlo, hazlo desde la pestaña Deudas. Si lo eliminas aquí, también se quita de esa deuda.</span>
+        </p>
+        <div className="info-mov">
+          <strong>{movimiento.descripcion || TITULOS[movimiento.tipo].nuevo}</strong>
+          <span className={movimiento.tipo === 'gasto' ? 'negativo' : 'positivo'}>{movimiento.tipo === 'gasto' ? '−' : '+'}{pesos(movimiento.monto)}</span>
+          <small>{espacios.find((e) => e.id === movimiento.espacio_id)?.nombre ?? ''} · {fechaCorta(movimiento.fecha)}</small>
+        </div>
+        {errores.general && <p className="alerta" role="alert">{errores.general}</p>}
+        {confirmar === 'eliminar' && (
+          <Confirmar titulo="¿Eliminar este movimiento?" mensaje="También se quita de la deuda. Los saldos se recalculan." textoSi="Eliminar" peligro
+            onNo={() => setConfirmar(null)} onSi={() => onEliminar(movimiento.id)} />
+        )}
+      </Hoja>
+    );
   }
 
   const pie = (

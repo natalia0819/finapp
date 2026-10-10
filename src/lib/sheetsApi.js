@@ -14,7 +14,12 @@ export const COLUMNAS = {
   Perfil: ['apodo', 'fecha_registro', 'avatar', 'moneda'],
   Espacios: ['id', 'nombre', 'color', 'icono', 'meta', 'activo', 'es_predeterminado', 'fecha_creacion'],
   Movimientos: ['id', 'fecha', 'tipo', 'monto', 'espacio_id', 'espacio_destino_id', 'descripcion', 'grupo_id', 'medio'],
+  Deudas: ['id', 'nombre', 'tipo', 'monto', 'fecha', 'fecha_limite', 'nota', 'movimiento_id'],
+  Abonos: ['id', 'deuda_id', 'deuda', 'tipo', 'fecha', 'monto', 'nota', 'movimiento_id'],
 };
+
+/** Pestañas con filas de datos (todas menos Perfil). */
+const TABLAS = ['Espacios', 'Movimientos', 'Deudas', 'Abonos'];
 
 /** Error con el código HTTP, para que la interfaz sepa qué hacer (401 = volver a conectar, 0 = sin internet). */
 export class ErrorGoogle extends Error {
@@ -88,6 +93,8 @@ export async function crearHoja() {
         { updateSheetProperties: { properties: { sheetId: primeraId, title: 'Perfil', ...congelar }, fields: 'title,gridProperties.frozenRowCount' } },
         { addSheet: { properties: { title: 'Espacios', ...congelar } } },
         { addSheet: { properties: { title: 'Movimientos', ...congelar } } },
+        { addSheet: { properties: { title: 'Deudas', ...congelar } } },
+        { addSheet: { properties: { title: 'Abonos', ...congelar } } },
       ],
     }),
   });
@@ -102,6 +109,8 @@ export async function crearHoja() {
         { range: 'Perfil!A1:D1', values: [COLUMNAS.Perfil] },
         { range: 'Espacios!A1:H3', values: [COLUMNAS.Espacios, ...filasEspacios] },
         { range: 'Movimientos!A1:I1', values: [COLUMNAS.Movimientos] },
+        { range: 'Deudas!A1:H1', values: [COLUMNAS.Deudas] },
+        { range: 'Abonos!A1:H1', values: [COLUMNAS.Abonos] },
       ],
     }),
   });
@@ -112,15 +121,46 @@ export async function crearHoja() {
     body: JSON.stringify({ appProperties: { app: APP_KEY } }),
   });
   await darFormatoHoja(id).catch((e) => console.warn('No se pudo dar formato a la hoja', e));
+  revisadas.add(id);
   return id;
+}
+
+// Hojas que ya se revisó que tienen todas sus pestañas (para no preguntarle a Google cada vez).
+const revisadas = new Set();
+
+/**
+ * Las hojas creadas antes de que existieran las deudas no tienen las pestañas "Deudas" y "Abonos":
+ * se agregan aquí, con su encabezado, la primera vez que se necesitan.
+ */
+async function asegurarPestanas(id) {
+  if (revisadas.has(id)) return;
+  const info = await llamar(`${SHEETS}/${id}?fields=sheets.properties.title`);
+  const hay = new Set(info.sheets.map((x) => x.properties.title));
+  const faltan = ['Deudas', 'Abonos'].filter((t) => !hay.has(t));
+  if (faltan.length) {
+    await llamar(`${SHEETS}/${id}:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({ requests: faltan.map((title) => ({ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 } } } })) }),
+    });
+    await llamar(`${SHEETS}/${id}/values:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: faltan.map((t) => ({ range: `${t}!A1:${letra(COLUMNAS[t].length)}1`, values: [COLUMNAS[t]] })),
+      }),
+    });
+    await darFormatoHoja(id).catch((e) => console.warn('No se pudo dar formato a las pestañas nuevas', e));
+  }
+  revisadas.add(id);
 }
 
 /** Lee perfil, espacios y movimientos en una sola llamada (y repara filas corridas, si las hay). */
 export async function leerDatos(id) {
-  const rangos = ['Perfil!A2:D2', 'Espacios!A2:I', 'Movimientos!A2:J']
+  await asegurarPestanas(id);
+  const rangos = ['Perfil!A2:D2', 'Espacios!A2:I', 'Movimientos!A2:J', 'Deudas!A2:H', 'Abonos!A2:H']
     .map((r) => `ranges=${rango(r)}`).join('&');
   const datos = await llamar(`${SHEETS}/${id}/values:batchGet?${rangos}&valueRenderOption=UNFORMATTED_VALUE`);
-  const [perfil, espaciosCrudos, movimientosCrudos] = datos.valueRanges.map((v) => v.values ?? []);
+  const [perfil, espaciosCrudos, movimientosCrudos, deudasCrudas, abonosCrudos] = datos.valueRanges.map((v) => v.values ?? []);
 
   // Filas que quedaron corridas una columna a la derecha (columna A vacía): se corrigen aquí y en la hoja.
   const arreglos = [];
@@ -150,6 +190,8 @@ export async function leerDatos(id) {
     perfil: { apodo: String(perfil[0]?.[0] ?? ''), fecha_registro: String(perfil[0]?.[1] ?? ''), avatar: String(perfil[0]?.[2] ?? ''), moneda: String(perfil[0]?.[3] ?? '') },
     espacios: espacios.filter((f) => f[0]).map(filaAEspacio),
     movimientos: movimientos.filter((f) => f[0]).map(filaAMovimiento),
+    deudas: deudasCrudas.filter((f) => f[0]).map(filaADeuda),
+    abonos: abonosCrudos.filter((f) => f[0]).map(filaAAbono),
   };
 }
 
@@ -159,24 +201,25 @@ export async function leerDatos(id) {
 // Cada operación es "idempotente": si se aplica dos veces (por ejemplo,
 // se cortó internet justo después de guardar) el resultado es el mismo,
 // porque las filas se buscan por id antes de escribir.
-//   { op: 'guardar',  hoja: 'Espacios' | 'Movimientos', objetos: [...] }
-//   { op: 'eliminar', hoja: 'Espacios' | 'Movimientos', ids: [...] }
+//   { op: 'guardar',  hoja: 'Espacios' | 'Movimientos' | 'Deudas' | 'Abonos', objetos: [...] }
+//   { op: 'eliminar', hoja: 'Espacios' | 'Movimientos' | 'Deudas' | 'Abonos', ids: [...] }
 //   { op: 'perfil',   perfil: { apodo, fecha_registro, avatar, moneda } }
 
 export async function sincronizarCola(idHoja, cola, alCompletar) {
   if (!cola.length) return;
+  await asegurarPestanas(idHoja);
 
-  // Se lee cada pestaña completa (A:I) para saber qué ids hay y cuál es la última fila ocupada,
+  // Se lee la columna A de cada pestaña para saber qué ids hay y cuál es la última fila ocupada,
   // y los datos internos de cada pestaña (id y cuántas filas tiene la cuadrícula).
   const [columnas, info] = await Promise.all([
-    llamar(`${SHEETS}/${idHoja}/values:batchGet?ranges=${rango('Espacios!A:I')}&ranges=${rango('Movimientos!A:I')}`),
+    llamar(`${SHEETS}/${idHoja}/values:batchGet?${TABLAS.map((t) => `ranges=${rango(`${t}!A:A`)}`).join('&')}`),
     llamar(`${SHEETS}/${idHoja}?fields=sheets.properties(sheetId,title,gridProperties.rowCount)`),
   ]);
   const tabla = (i) => {
     const filas = columnas.valueRanges[i].values ?? [];
     return { ids: filas.map((f) => String(f[0] ?? '')), total: filas.length };
   };
-  const tablas = { Espacios: tabla(0), Movimientos: tabla(1) };
+  const tablas = Object.fromEntries(TABLAS.map((t, i) => [t, tabla(i)]));
   const pestanas = Object.fromEntries(info.sheets.map((s) => [s.properties.title, {
     id: s.properties.sheetId,
     filas: s.properties.gridProperties?.rowCount ?? 1000,
@@ -205,7 +248,7 @@ export async function sincronizarCola(idHoja, cola, alCompletar) {
  * las nuevas van justo debajo de la última fila ocupada (columna A en adelante, siempre).
  */
 async function guardarFilas(idHoja, hoja, objetos, tabla, pestana) {
-  const aFila = hoja === 'Espacios' ? espacioAFila : movimientoAFila;
+  const aFila = A_FILA[hoja];
   const fin = letra(COLUMNAS[hoja].length); // última columna: H en Espacios, I en Movimientos
   const escrituras = [];
   // Encabezado completo, por si la hoja es de antes de que existiera la columna "medio".
@@ -302,6 +345,42 @@ function movimientoAFila(m) {
     m.descripcion || '', m.grupo_id || '', medioDe(m)];
 }
 
+function deudaAFila(d) {
+  return [d.id, d.nombre, d.tipo === 'me_deben' ? 'me deben' : 'debo', Number(d.monto), d.fecha, d.fecha_limite || '', d.nota || '', d.movimiento_id || ''];
+}
+
+function filaADeuda(f) {
+  return {
+    id: String(f[0]),
+    nombre: String(f[1] ?? ''),
+    tipo: String(f[2] ?? '').toLowerCase().includes('me') ? 'me_deben' : 'debo',
+    monto: Math.abs(Number(f[3])) || 0,
+    fecha: String(f[4] ?? ''),
+    fecha_limite: String(f[5] ?? ''),
+    nota: String(f[6] ?? ''),
+    movimiento_id: String(f[7] ?? ''),
+  };
+}
+
+function abonoAFila(a) {
+  return [a.id, a.deuda_id, a.deuda || '', a.tipo === 'aumento' ? 'aumento' : 'abono', a.fecha, Number(a.monto), a.nota || '', a.movimiento_id || ''];
+}
+
+function filaAAbono(f) {
+  return {
+    id: String(f[0]),
+    deuda_id: String(f[1] ?? ''),
+    deuda: String(f[2] ?? ''),
+    tipo: String(f[3] ?? '').toLowerCase() === 'aumento' ? 'aumento' : 'abono',
+    fecha: String(f[4] ?? ''),
+    monto: Math.abs(Number(f[5])) || 0,
+    nota: String(f[6] ?? ''),
+    movimiento_id: String(f[7] ?? ''),
+  };
+}
+
+const A_FILA = { Espacios: espacioAFila, Movimientos: movimientoAFila, Deudas: deudaAFila, Abonos: abonoAFila };
+
 /** Letra de una columna a partir de su número (1 = A, 9 = I). */
 const letra = (n) => String.fromCharCode(64 + n);
 
@@ -338,14 +417,16 @@ function formatoDinero() {
   const numero = m.decimales > 0 ? '#,##0.00' : '#,##0';
   return { type: 'CURRENCY', pattern: m.simboloDespues ? `${numero} "${m.simbolo}"` : `"${m.simbolo}" ${numero}` };
 }
-const ANCHO_TABLA = { Perfil: 4, Espacios: 8, Movimientos: 9 };
-const COLUMNA_PESOS = { Espacios: 4, Movimientos: 3 }; // meta (E) y monto (D)
+const ANCHO_TABLA = { Perfil: 4, Espacios: 8, Movimientos: 9, Deudas: 8, Abonos: 8 };
+const COLUMNA_PESOS = { Espacios: 4, Movimientos: 3, Deudas: 3, Abonos: 5 }; // meta (E) y montos
 const ANCHOS = {
   Perfil: [200, 170, 120, 90],
   Espacios: [110, 220, 90, 120, 130, 70, 140, 160],
   Movimientos: [110, 160, 90, 130, 150, 170, 260, 110, 90],
+  Deudas: [110, 220, 90, 130, 160, 110, 260, 110],
+  Abonos: [110, 110, 220, 90, 160, 130, 240, 110],
 };
-const OCULTAS = { Espacios: [0], Movimientos: [0, 7] }; // ids internos: la app los usa, la persona no los necesita ver
+const OCULTAS = { Espacios: [0], Movimientos: [0, 7], Deudas: [0, 7], Abonos: [0, 1, 7] }; // ids internos: la app los usa, la persona no los necesita ver
 
 function rangoTabla(sheetId, hoja, desde, hasta) {
   return { sheetId, startRowIndex: desde, endRowIndex: hasta, startColumnIndex: 0, endColumnIndex: ANCHO_TABLA[hoja] };
@@ -379,15 +460,14 @@ function estiloFilas(sheetId, hoja, desde, hasta) {
  * Se puede repetir sin problema: siempre deja el mismo resultado.
  */
 export async function darFormatoHoja(idHoja) {
-  const [info, columnas] = await Promise.all([
-    llamar(`${SHEETS}/${idHoja}?fields=sheets.properties(sheetId,title)`),
-    llamar(`${SHEETS}/${idHoja}/values:batchGet?ranges=${rango('Perfil!A:A')}&ranges=${rango('Espacios!A:A')}&ranges=${rango('Movimientos!A:A')}`),
-  ]);
+  const info = await llamar(`${SHEETS}/${idHoja}?fields=sheets.properties(sheetId,title)`);
   const pestanas = Object.fromEntries(info.sheets.map((x) => [x.properties.title, x.properties.sheetId]));
-  const filasCon = ['Perfil', 'Espacios', 'Movimientos'].map((_, i) => (columnas.valueRanges[i].values ?? []).length);
+  const hojas = ['Perfil', ...TABLAS].filter((t) => pestanas[t] != null); // solo las que existen
+  const columnas = await llamar(`${SHEETS}/${idHoja}/values:batchGet?${hojas.map((t) => `ranges=${rango(`${t}!A:A`)}`).join('&')}`);
+  const filasCon = hojas.map((_, i) => (columnas.valueRanges[i]?.values ?? []).length);
 
   const pedidos = [{ updateSpreadsheetProperties: { properties: { locale: 'es_CO' }, fields: 'locale' } }];
-  ['Perfil', 'Espacios', 'Movimientos'].forEach((hoja, i) => {
+  hojas.forEach((hoja, i) => {
     const id = pestanas[hoja];
     if (id == null) return;
     // Encabezado

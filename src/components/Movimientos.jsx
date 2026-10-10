@@ -10,7 +10,7 @@ import { exportarCSV, exportarExcel } from '../lib/exportar';
 // Cuántos movimientos se muestran de entrada y cuántos más con cada "Ver más".
 const CUANTOS = 10;
 
-export default function Movimientos({ espacios, movimientos, onAbrir, onAviso }) {
+export default function Movimientos({ espacios, movimientos, deudas = [], abonos = [], onAbrir, onAviso }) {
   const mesActual = fechaAhora().slice(0, 7);
   const [mes, setMes] = useState(mesActual);
   const [espacio, setEspacio] = useState('');
@@ -56,7 +56,7 @@ export default function Movimientos({ espacios, movimientos, onAbrir, onAviso })
     if (!filtrados.length) { onAviso('No hay movimientos para exportar con estos filtros.'); return; }
     setExportando(true);
     try {
-      if (formato === 'xlsx') await exportarExcel(filtrados, espacios, movimientos);
+      if (formato === 'xlsx') await exportarExcel(filtrados, espacios, movimientos, deudas, abonos);
       else exportarCSV(filtrados, espacios);
     } catch (e) {
       console.error(e);

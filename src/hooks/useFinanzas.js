@@ -10,7 +10,10 @@ import { cerrarSesion, obtenerToken, olvidarCuenta } from '../lib/googleAuth';
 import { fechaAhora, generarId } from '../lib/formato';
 import { calcularSaldosPorMedio, MEDIOS } from '../lib/movimientos';
 
-const VACIO = { perfil: { apodo: '', fecha_registro: '' }, espacios: [], movimientos: [] };
+const VACIO = { perfil: { apodo: '', fecha_registro: '' }, espacios: [], movimientos: [], deudas: [], abonos: [] };
+
+/** Copias guardadas antes de que existieran las deudas no traen esas listas. */
+const completar = (d) => ({ ...VACIO, ...d, deudas: d?.deudas ?? [], abonos: d?.abonos ?? [] });
 
 /** Reemplaza por id o agrega al final. */
 function fusionar(lista, objetos) {
@@ -25,7 +28,8 @@ function fusionar(lista, objetos) {
 export function useFinanzas() {
   const [inicial] = useState(cargarLocal);
   const [idHoja, setIdHoja] = useState(inicial?.idHoja ?? null);
-  const [datos, setDatos] = useState(inicial?.datos ?? VACIO);
+  const [datos, setDatosEstado] = useState(completar(inicial?.datos ?? VACIO));
+  const setDatos = (v) => setDatosEstado((d) => completar(typeof v === 'function' ? v(d) : v));
   const [cola, setColaEstado] = useState(inicial?.cola ?? []);
   const [ultimaSync, setUltimaSync] = useState(inicial?.ultimaSync ?? null);
   // estado: 'inactivo' | 'sincronizando' | 'al-dia' | 'sin-conexion' | 'sin-sesion' | 'error'
@@ -65,7 +69,7 @@ export function useFinanzas() {
         if (colaRef.current.length === 0) setDatos(nuevos); // no pisar cambios hechos mientras tanto
       }
             // Hojas creadas antes de que existiera el estilo: se les aplica una vez por dispositivo.
-      const marca = `fe_formato_v2_${id}`; // v2: columna "medio" en Movimientos
+      const marca = `fe_formato_v3_${id}`; // v3: pestañas Deudas y Abonos
       if (!localStorage.getItem(marca)) {
         try {
           await darFormatoHoja(id);
@@ -181,9 +185,76 @@ export function useFinanzas() {
       (d) => ({ ...d, movimientos: fusionar(d.movimientos, movs) }));
   }
 
+  /** Borra un movimiento. Si era un abono de una deuda, el abono también se borra (para que todo cuadre). */
   function eliminarMovimiento(id) {
-    encolar([{ op: 'eliminar', hoja: 'Movimientos', ids: [id] }],
-      (d) => ({ ...d, movimientos: d.movimientos.filter((m) => m.id !== id) }));
+    const abonosLigados = datos.abonos.filter((a) => a.movimiento_id === id).map((a) => a.id);
+    const deudasLigadas = datos.deudas.filter((x) => x.movimiento_id === id).map((x) => ({ ...x, movimiento_id: '' }));
+    const ops = [{ op: 'eliminar', hoja: 'Movimientos', ids: [id] }];
+    if (abonosLigados.length) ops.push({ op: 'eliminar', hoja: 'Abonos', ids: abonosLigados });
+    if (deudasLigadas.length) ops.push({ op: 'guardar', hoja: 'Deudas', objetos: deudasLigadas });
+    encolar(ops, (d) => ({
+      ...d,
+      movimientos: d.movimientos.filter((m) => m.id !== id),
+      abonos: d.abonos.filter((a) => !abonosLigados.includes(a.id)),
+      deudas: fusionar(d.deudas, deudasLigadas),
+    }));
+  }
+
+  // ---------------- Deudas ----------------
+
+  /** Crea o edita una deuda. "mov" es el movimiento opcional (la plata que entró o salió de un espacio al crearla). */
+  function guardarDeuda(deuda, mov) {
+    const ops = [];
+    if (mov) ops.push({ op: 'guardar', hoja: 'Movimientos', objetos: [mov] });
+    ops.push({ op: 'guardar', hoja: 'Deudas', objetos: [deuda] });
+    // Si cambió el nombre, se actualiza también en la pestaña Abonos (es solo para leerla más fácil).
+    const anterior = datos.deudas.find((x) => x.id === deuda.id);
+    const renombrados = anterior && anterior.nombre !== deuda.nombre
+      ? datos.abonos.filter((a) => a.deuda_id === deuda.id).map((a) => ({ ...a, deuda: deuda.nombre }))
+      : [];
+    if (renombrados.length) ops.push({ op: 'guardar', hoja: 'Abonos', objetos: renombrados });
+    encolar(ops, (d) => ({
+      ...d,
+      movimientos: mov ? fusionar(d.movimientos, [mov]) : d.movimientos,
+      deudas: fusionar(d.deudas, [deuda]),
+      abonos: fusionar(d.abonos, renombrados),
+    }));
+  }
+
+  /** Borra una deuda y su historial de abonos. Los movimientos en los espacios se conservan (tus saldos no cambian). */
+  function eliminarDeuda(id) {
+    const suyos = datos.abonos.filter((a) => a.deuda_id === id).map((a) => a.id);
+    const ops = [];
+    if (suyos.length) ops.push({ op: 'eliminar', hoja: 'Abonos', ids: suyos });
+    ops.push({ op: 'eliminar', hoja: 'Deudas', ids: [id] });
+    encolar(ops, (d) => ({
+      ...d,
+      deudas: d.deudas.filter((x) => x.id !== id),
+      abonos: d.abonos.filter((a) => !suyos.includes(a.id)),
+    }));
+  }
+
+  /** Registra un abono o un "sumar a la deuda", con su movimiento en el espacio si lo tiene. */
+  function guardarRegistroDeuda(registro, mov) {
+    const ops = [];
+    if (mov) ops.push({ op: 'guardar', hoja: 'Movimientos', objetos: [mov] });
+    ops.push({ op: 'guardar', hoja: 'Abonos', objetos: [registro] });
+    encolar(ops, (d) => ({
+      ...d,
+      movimientos: mov ? fusionar(d.movimientos, [mov]) : d.movimientos,
+      abonos: fusionar(d.abonos, [registro]),
+    }));
+  }
+
+  /** Borra un abono (o un aumento) y el movimiento que creó en el espacio. */
+  function eliminarRegistroDeuda(registro) {
+    const ops = [{ op: 'eliminar', hoja: 'Abonos', ids: [registro.id] }];
+    if (registro.movimiento_id) ops.push({ op: 'eliminar', hoja: 'Movimientos', ids: [registro.movimiento_id] });
+    encolar(ops, (d) => ({
+      ...d,
+      abonos: d.abonos.filter((a) => a.id !== registro.id),
+      movimientos: d.movimientos.filter((m) => m.id !== registro.movimiento_id),
+    }));
   }
 
   const saldos = useMemo(() => calcularSaldos(datos.espacios, datos.movimientos), [datos]);
@@ -194,5 +265,6 @@ export function useFinanzas() {
     conectar, sincronizar, salir,
     guardarPerfil, guardarEspacio, eliminarEspacio, archivarEspacio,
     guardarMovimientos, eliminarMovimiento,
+    guardarDeuda, eliminarDeuda, guardarRegistroDeuda, eliminarRegistroDeuda,
   };
 }

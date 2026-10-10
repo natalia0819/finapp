@@ -13,6 +13,12 @@ import GestionEspacios from './components/GestionEspacios';
 import Confirmar from './components/Confirmar';
 import SelectorAvatar from './components/SelectorAvatar';
 import SelectorMoneda from './components/SelectorMoneda';
+import Deudas from './components/Deudas';
+import FormDeuda from './components/FormDeuda';
+import FormAbono from './components/FormAbono';
+import { resumenDeuda } from './lib/deudas';
+import { validarCambio } from './lib/movimientos';
+import { pesos } from './lib/formato';
 import { usarMoneda } from './lib/moneda';
 import { useFinanzas } from './hooks/useFinanzas';
 import { prepararCliente, iniciarSesion, obtenerToken } from './lib/googleAuth';
@@ -30,6 +36,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [aviso, setAviso] = useState('');
   const [pestana, setPestana] = useState('inicio');
+  const [deudaSel, setDeudaSel] = useState(null); // deuda abierta en la pantalla Deudas
   const [modal, setModal] = useState(null);
   const [tema, setTema] = useState(leerTema());
   const [eventoInstalar, setEventoInstalar] = useState(null);
@@ -99,9 +106,9 @@ export default function App() {
   function cambiarTema(t) { aplicarTema(t); setTema(t); }
 
   async function exportarTodo(formato) {
-    if (!f.datos.movimientos.length) { setAviso('Todavía no hay movimientos para exportar.'); return; }
+    if (!f.datos.movimientos.length && !(formato === 'xlsx' && f.datos.deudas.length)) { setAviso('Todavía no hay movimientos para exportar.'); return; }
     try {
-      if (formato === 'xlsx') await exportarExcel(f.datos.movimientos, f.datos.espacios);
+      if (formato === 'xlsx') await exportarExcel(f.datos.movimientos, f.datos.espacios, f.datos.movimientos, f.datos.deudas, f.datos.abonos);
       else exportarCSV(f.datos.movimientos, f.datos.espacios);
     } catch (e) {
       console.error(e);
@@ -126,6 +133,32 @@ export default function App() {
   // ---------------- App ----------------
   const cerrar = () => setModal(null);
   const volver = () => setModal(modal?.desde === 'gestion' ? { tipo: 'gestion' } : null);
+
+  /** Si un movimiento nació de una deuda (un abono o el préstamo inicial), devuelve el nombre de esa deuda. */
+  function deudaDeMovimiento(mov) {
+    if (!mov) return '';
+    const abono = datos.abonos.find((a) => a.movimiento_id === mov.id);
+    const deuda = datos.deudas.find((d) => d.id === abono?.deuda_id || d.movimiento_id === mov.id);
+    return deuda?.nombre ?? abono?.deuda ?? '';
+  }
+
+  /** Antes de borrar un abono: revisa que el espacio no quede en negativo y explica qué se borra. */
+  function pedirBorrarRegistro(registro) {
+    const mov = datos.movimientos.find((m) => m.id === registro.movimiento_id);
+    if (mov) {
+      const problemas = validarCambio(datos.espacios, datos.movimientos, [mov.id], []);
+      if (problemas.length) {
+        const p = problemas[0];
+        setAviso(`No se puede: ${p.espacio?.nombre ?? 'un espacio'} quedaría en ${pesos(p.saldo)}. Primero ajusta los gastos que usan esa plata.`);
+        return;
+      }
+    }
+    const espacio = mov && datos.espacios.find((e) => e.id === mov.espacio_id);
+    const detalle = mov
+      ? `También se borra el ${mov.tipo === 'gasto' ? 'gasto' : 'ingreso'} de ${pesos(mov.monto)} en ${espacio?.nombre ?? 'tu espacio'}.`
+      : 'Se quita del historial de la deuda.';
+    setModal({ tipo: 'borrarRegistro', registro, detalle });
+  }
 
   const TEXTO_GUARDADO = { ingreso: 'Ingreso guardado.', gasto: 'Gasto guardado.', traslado: 'Traslado guardado.' };
 
@@ -157,8 +190,25 @@ export default function App() {
           <Movimientos
             espacios={datos.espacios}
             movimientos={datos.movimientos}
+            deudas={datos.deudas}
+            abonos={datos.abonos}
             onAbrir={(mov) => setModal({ tipo: 'movimiento', movimiento: mov })}
             onAviso={setAviso}
+          />
+        )}
+        {pestana === 'deudas' && (
+          <Deudas
+            deudas={datos.deudas}
+            abonos={datos.abonos}
+            espacios={datos.espacios}
+            movimientos={datos.movimientos}
+            seleccion={deudaSel}
+            onSeleccionar={setDeudaSel}
+            onNueva={() => setModal({ tipo: 'deuda', deuda: null })}
+            onEditar={(deuda) => setModal({ tipo: 'deuda', deuda })}
+            onAbonar={(deuda) => setModal({ tipo: 'abono', deuda, modo: 'abono' })}
+            onSumar={(deuda) => setModal({ tipo: 'abono', deuda, modo: 'aumento' })}
+            onBorrarRegistro={pedirBorrarRegistro}
           />
         )}
         {pestana === 'ajustes' && (
@@ -200,6 +250,7 @@ export default function App() {
           saldos={saldos}
           saldosMedio={f.saldosMedio}
           movimientos={datos.movimientos}
+          deDeuda={deudaDeMovimiento(modal.movimiento)}
           onCerrar={cerrar}
           onGuardar={(movs) => {
             f.guardarMovimientos(movs);
@@ -220,6 +271,52 @@ export default function App() {
           onGuardar={(e) => { f.guardarEspacio(e); setAviso(modal.espacio ? 'Espacio actualizado.' : 'Espacio creado.'); volver(); }}
           onEliminar={(id) => { f.eliminarEspacio(id); setAviso('Espacio eliminado.'); volver(); }}
           onArchivar={(e, saldo, destino) => { f.archivarEspacio(e, saldo, destino); setAviso(`"${e.nombre}" quedó archivado.`); volver(); }}
+        />
+      )}
+
+      {modal?.tipo === 'deuda' && (
+        <FormDeuda
+          deuda={modal.deuda}
+          espacios={datos.espacios}
+          saldosMedio={f.saldosMedio}
+          movimientos={datos.movimientos}
+          onCerrar={cerrar}
+          onGuardar={(deuda, mov) => {
+            f.guardarDeuda(deuda, mov);
+            setAviso(modal.deuda ? 'Cambios guardados.' : 'Deuda creada.');
+            if (!modal.deuda) setDeudaSel(deuda.id);
+            cerrar();
+          }}
+          onEliminar={(id) => { f.eliminarDeuda(id); setDeudaSel(null); setAviso('Deuda eliminada.'); cerrar(); }}
+        />
+      )}
+
+      {modal?.tipo === 'abono' && (
+        <FormAbono
+          deuda={modal.deuda}
+          modo={modal.modo}
+          abonos={datos.abonos}
+          espacios={datos.espacios}
+          saldosMedio={f.saldosMedio}
+          movimientos={datos.movimientos}
+          onCerrar={cerrar}
+          onGuardar={(registro, mov) => {
+            f.guardarRegistroDeuda(registro, mov);
+            const antes = resumenDeuda(modal.deuda, datos.abonos);
+            const saldada = registro.tipo === 'abono' && registro.monto >= antes.pendiente;
+            setAviso(saldada ? '¡Deuda saldada! 🎉' : registro.tipo === 'abono' ? 'Abono guardado.' : 'Se sumó a la deuda.');
+            cerrar();
+          }}
+        />
+      )}
+
+      {modal?.tipo === 'borrarRegistro' && (
+        <Confirmar
+          titulo={modal.registro.tipo === 'abono' ? `¿Borrar este abono de ${pesos(modal.registro.monto)}?` : `¿Quitar ${pesos(modal.registro.monto)} de la deuda?`}
+          mensaje={modal.detalle}
+          textoSi="Borrar" peligro
+          onNo={cerrar}
+          onSi={() => { f.eliminarRegistroDeuda(modal.registro); setAviso('Listo, se borró.'); cerrar(); }}
         />
       )}
 

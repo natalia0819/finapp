@@ -3,13 +3,14 @@
 // las filas, amarillo para lo disponible, bordes finos y formato contable de pesos.
 // No depende del navegador: así se puede probar también en Node.
 import { calcularSaldos, medioDe, TEXTO_MEDIO } from './movimientos';
-import { leerFecha } from './formato';
+
 import { datosMoneda } from './moneda';
+import { resumenDeuda, TIPOS_DEUDA } from './deudas';
 
 const LILA_FUERTE = '#D5ABFF';
 const LILA_SUAVE = '#EAD5FF';
 const AMARILLO = '#FFFFAB';
-const AMARILLO_TOTAL = '#FFFF99';
+const AMARILLO_TOTAL = '#FFFFAB';
 const FUENTE = 'Bahnschrift Light Condensed';
 // Formato contable de Excel con el símbolo y los decimales de la moneda elegida.
 function formatoExcel() {
@@ -29,6 +30,16 @@ const texto = (value, extra = {}) => ({ ...base, type: String, value: String(val
 const dinero = (value, extra = {}) => ({ ...base, type: Number, value: Number(value) || 0, format: formatoExcel(), ...extra });
 const formula = (value, extra = {}) => ({ ...base, type: 'Formula', value, format: formatoExcel(), ...extra });
 const vacia = () => null;
+
+/**
+ * "2026-10-05 14:30:00" -> fecha para Excel. Excel no maneja zonas horarias: se arma en UTC
+ * para que la hora quede tal cual se registró (si no, en Colombia saldría 5 horas corrida).
+ */
+function leerFecha(texto) {
+  const m = String(texto ?? '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!m) return null;
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0)));
+}
 
 /** Índice de columna (0 = A) a letra: 0→A, 27→AB */
 function letra(i) {
@@ -182,12 +193,77 @@ function hojaEspacios(espacios, saldos) {
   };
 }
 
+// ---------- Hoja 4: Deudas (lo que debo, lo que me deben y sus abonos) ----------
+function hojaDeudas(deudas, abonos, espacios, movimientos) {
+  const titulo = (t) => texto(t, { backgroundColor: LILA_FUERTE, align: 'center', fontWeight: 'bold' });
+  const fondo = { backgroundColor: LILA_SUAVE };
+  const encabezado = ['Deuda', 'Tipo', 'Total', 'Abonado', 'Pendiente', 'Avance', 'Fecha límite', 'Nota', 'Estado'].map(titulo);
+  const orden = [...deudas].sort((a, b) => (a.tipo === b.tipo ? a.fecha.localeCompare(b.fecha) : a.tipo === 'debo' ? -1 : 1));
+  const filas = orden.map((d, i) => {
+    const r = i + 2;
+    const res = resumenDeuda(d, abonos);
+    const limite = d.fecha_limite ? leerFecha(`${d.fecha_limite} 00:00:00`) : null;
+    return [
+      texto(d.nombre, fondo),
+      texto(TIPOS_DEUDA[d.tipo], fondo),
+      dinero(res.total, fondo),
+      dinero(res.abonado, fondo),
+      formula(`=MAX(0,C${r}-D${r})`, fondo),
+      { ...base, ...fondo, type: 'Formula', value: `=IF(C${r}>0,D${r}/C${r},"")`, format: '0%', align: 'center' },
+      limite ? { ...base, ...fondo, type: Date, value: limite, format: 'dd/mm/yyyy' } : texto('', fondo),
+      texto(d.nota, fondo),
+      texto(res.pagada ? 'Saldada' : 'Activa', fondo),
+    ];
+  });
+  const n = Math.max(2, filas.length + 1);
+  const amarillo = { backgroundColor: AMARILLO_TOTAL, fontWeight: 'bold' };
+  const totalFila = (rotulo, tipo) => [
+    texto(rotulo, amarillo), texto('', amarillo), texto('', amarillo), texto('', amarillo),
+    formula(`=SUMIF(B2:B${n},"${tipo}",E2:E${n})`, amarillo),
+    texto('', amarillo), texto('', amarillo), texto('', amarillo), texto('', amarillo),
+  ];
+
+  // Historial: abonos y lo que se sumó a cada deuda.
+  const nombre = (id) => deudas.find((d) => d.id === id)?.nombre ?? '';
+  const historial = [...abonos].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((a) => {
+    const mov = movimientos.find((m) => m.id === a.movimiento_id);
+    const espacio = mov ? espacios.find((e) => e.id === mov.espacio_id)?.nombre ?? '' : '';
+    const fecha = leerFecha(a.fecha);
+    return [
+      fecha ? { ...base, ...fondo, type: Date, value: fecha, format: 'dd/mm/yyyy' } : texto(a.fecha, fondo),
+      texto(nombre(a.deuda_id) || a.deuda, fondo),
+      texto(a.tipo === 'aumento' ? 'Sumó a la deuda' : 'Abono', fondo),
+      texto(espacio, fondo),
+      texto(mov ? TEXTO_MEDIO[medioDe(mov)] : '', fondo),
+      dinero(a.monto, fondo),
+      texto(a.nota, fondo),
+      null, null,
+    ];
+  });
+
+  const data = [encabezado, ...filas, totalFila('TOTAL QUE DEBES', 'Debo'), totalFila('TOTAL QUE TE DEBEN', 'Me deben')];
+  if (historial.length) {
+    data.push(Array(9).fill(null));
+    data.push([texto('Historial de abonos', { fontWeight: 'bold', borderStyle: undefined }), null, null, null, null, null, null, null, null]);
+    data.push([...['Fecha', 'Deuda', 'Tipo', 'Espacio', 'Medio', 'Monto', 'Nota'].map(titulo), null, null]);
+    data.push(...historial);
+  }
+  return {
+    sheet: 'Deudas',
+    data,
+    columns: [{ width: 26 }, { width: 22 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 14 }, { width: 30 }, { width: 10 }],
+    stickyRowsCount: 1,
+  };
+}
+
 /**
  * Hojas del Excel.
  * movimientos: lo que se exporta (puede venir filtrado).
  * todos: todos los movimientos, para que la hoja Espacios muestre el saldo real.
  */
-export function armarHojas(movimientos, espacios, todos = movimientos) {
+export function armarHojas(movimientos, espacios, todos = movimientos, deudas = [], abonos = []) {
   const saldos = calcularSaldos(espacios, todos);
-  return [hojaPorMes(movimientos, espacios), hojaMovimientos(movimientos, espacios), hojaEspacios(espacios, saldos)];
+  const hojas = [hojaPorMes(movimientos, espacios), hojaMovimientos(movimientos, espacios), hojaEspacios(espacios, saldos)];
+  if (deudas.length) hojas.push(hojaDeudas(deudas, abonos, espacios, todos));
+  return hojas;
 }

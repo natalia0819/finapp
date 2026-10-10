@@ -46,11 +46,11 @@ export function exportarCSV(movimientos, espacios) {
 }
 
 /** Excel con el estilo de tu registro de finanzas. La librería se carga solo cuando se usa. */
-export async function exportarExcel(movimientos, espacios, todos = movimientos) {
+export async function exportarExcel(movimientos, espacios, todos = movimientos, deudas = [], abonos = []) {
   const [{ default: escribirExcel }, { armarHojas }] = await Promise.all([
     import('write-excel-file/browser'),
     import('./excelRegistro'),
   ]);
-  const blob = await escribirExcel(armarHojas(movimientos, espacios, todos), { fontFamily: 'Bahnschrift Light Condensed', fontSize: 11 }).toBlob();
+  const blob = await escribirExcel(armarHojas(movimientos, espacios, todos, deudas, abonos), { fontFamily: 'Bahnschrift Light Condensed', fontSize: 11 }).toBlob();
   descargar(blob, nombreArchivo('xlsx'));
 }
