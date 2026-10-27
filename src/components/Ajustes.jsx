@@ -1,6 +1,6 @@
 // Pantalla 8: ajustes.
 import {
-  CircleCheck, Download, ExternalLink, FileSpreadsheet, FileText, LayoutGrid, LogOut,
+  CircleCheck, Download, ExternalLink, FileSpreadsheet, LayoutGrid, LogOut,
   Monitor, Moon, Pencil, RefreshCw, Smartphone, Smile, Sun,
 } from 'lucide-react';
 import { fechaCorta, pesos } from '../lib/formato';
@@ -66,8 +66,7 @@ export default function Ajustes({
       <section className="bloque">
         <h2>Tus datos</h2>
         <div className="pila">
-          <button className="boton boton--suave boton--ancho boton--izq" onClick={() => onExportar('xlsx')}><FileSpreadsheet aria-hidden="true" /> Exportar todo a Excel</button>
-          <button className="boton boton--suave boton--ancho boton--izq" onClick={() => onExportar('csv')}><FileText aria-hidden="true" /> Exportar todo a CSV</button>
+          <button className="boton boton--suave boton--ancho boton--izq" onClick={onExportar}><FileSpreadsheet aria-hidden="true" /> Exportar todo a Excel</button>
           <a className="boton boton--suave boton--ancho boton--izq" href={`https://docs.google.com/spreadsheets/d/${idHoja}`} target="_blank" rel="noreferrer">
             <ExternalLink aria-hidden="true" /> Abrir mi hoja en Google Sheets
           </a>

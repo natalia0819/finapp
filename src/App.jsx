@@ -23,7 +23,7 @@ import { usarMoneda } from './lib/moneda';
 import { useFinanzas } from './hooks/useFinanzas';
 import { prepararCliente, iniciarSesion, obtenerToken } from './lib/googleAuth';
 import { fechaAhora } from './lib/formato';
-import { exportarCSV, exportarExcel } from './lib/exportar';
+import { exportarExcel } from './lib/exportar';
 import { aplicarTema, leerTema } from './lib/tema';
 
 const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -105,14 +105,13 @@ export default function App() {
 
   function cambiarTema(t) { aplicarTema(t); setTema(t); }
 
-  async function exportarTodo(formato) {
-    if (!f.datos.movimientos.length && !(formato === 'xlsx' && f.datos.deudas.length)) { setAviso('Todavía no hay movimientos para exportar.'); return; }
+  async function exportarTodo() {
+    if (!f.datos.movimientos.length && !f.datos.deudas.length) { setAviso('Todavía no hay movimientos para exportar.'); return; }
     try {
-      if (formato === 'xlsx') await exportarExcel(f.datos.movimientos, f.datos.espacios, f.datos.movimientos, f.datos.deudas, f.datos.abonos);
-      else exportarCSV(f.datos.movimientos, f.datos.espacios);
+      await exportarExcel(f.datos.movimientos, f.datos.espacios, f.datos.movimientos, f.datos.deudas, f.datos.abonos);
     } catch (e) {
       console.error(e);
-      setAviso('No se pudo generar el archivo. Intenta con CSV.');
+      setAviso('No se pudo generar el archivo. Intenta de nuevo.');
     }
   }
 

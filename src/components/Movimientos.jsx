@@ -1,11 +1,11 @@
 // Pantalla 4: historial con filtros, resumen del periodo y exportación.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Download, FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Loader2 } from 'lucide-react';
 import FilaMovimiento from './FilaMovimiento';
 import { agruparPorDia, filtrar, mesesDisponibles, resumen } from '../lib/movimientos';
 import { etiquetaDia, fechaAhora, nombreMes, pesos } from '../lib/formato';
 import { iconoDe } from '../constants/espacios';
-import { exportarCSV, exportarExcel } from '../lib/exportar';
+import { exportarExcel } from '../lib/exportar';
 
 // Cuántos movimientos se muestran de entrada y cuántos más con cada "Ver más".
 const CUANTOS = 10;
@@ -16,7 +16,6 @@ export default function Movimientos({ espacios, movimientos, deudas = [], abonos
   const [espacio, setEspacio] = useState('');
   const [tipo, setTipo] = useState('');
   const [exportando, setExportando] = useState(false);
-  const [menuExportar, setMenuExportar] = useState(false);
 
   const meses = useMemo(() => mesesDisponibles(movimientos, mesActual), [movimientos, mesActual]);
   const filtrados = useMemo(() => filtrar(movimientos, { mes, espacio, tipo }), [movimientos, mes, espacio, tipo]);
@@ -51,16 +50,14 @@ export default function Movimientos({ espacios, movimientos, deudas = [], abonos
   const mayor = porEspacio[0]?.valor ?? 0;
   const totalGastos = porEspacio.reduce((s, x) => s + x.valor, 0);
 
-  async function exportar(formato) {
-    setMenuExportar(false);
+  async function exportar() {
     if (!filtrados.length) { onAviso('No hay movimientos para exportar con estos filtros.'); return; }
     setExportando(true);
     try {
-      if (formato === 'xlsx') await exportarExcel(filtrados, espacios, movimientos, deudas, abonos);
-      else exportarCSV(filtrados, espacios);
+      await exportarExcel(filtrados, espacios, movimientos, deudas, abonos);
     } catch (e) {
       console.error(e);
-      onAviso('No se pudo generar el archivo. Intenta con CSV.');
+      onAviso('No se pudo generar el archivo. Intenta de nuevo.');
     } finally {
       setExportando(false);
     }
@@ -71,15 +68,9 @@ export default function Movimientos({ espacios, movimientos, deudas = [], abonos
       <div className="historial__cabecera">
         <h1 className="titulo-pantalla">Movimientos</h1>
         <div className="exportar">
-          <button className="boton boton--suave" onClick={() => setMenuExportar((v) => !v)} aria-expanded={menuExportar} disabled={exportando}>
+          <button className="boton boton--suave" onClick={exportar} disabled={exportando}>
             {exportando ? <Loader2 className="girar" aria-hidden="true" /> : <Download aria-hidden="true" />} Exportar a registro
           </button>
-          {menuExportar && (
-            <div className="exportar__menu">
-              <button onClick={() => exportar('xlsx')}><FileSpreadsheet aria-hidden="true" /> Excel (.xlsx)</button>
-              <button onClick={() => exportar('csv')}><FileText aria-hidden="true" /> CSV</button>
-            </div>
-          )}
         </div>
       </div>
 
