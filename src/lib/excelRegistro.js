@@ -11,7 +11,6 @@ const LILA_FUERTE = '#D5ABFF';
 const LILA_SUAVE = '#EAD5FF';
 const AMARILLO = '#FFF4CC'; // crema mantequilla: combina con el lila
 const AMARILLO_TOTAL = '#FFF4CC';
-const VERDE = '#1B7F3B'; // montos de ingresos en la hoja "Por mes"
 const FUENTE = 'Bahnschrift Light Condensed';
 // Formato contable de Excel con el símbolo y los decimales de la moneda elegida.
 function formatoExcel() {
@@ -76,7 +75,7 @@ function hojaPorQuincena(movimientos, espacios) {
     const ultimoDia = new Date(Number(anio), Number(numMes), 0).getDate();
     const dias = parte === '1' ? 'DEL 1 AL 15' : `DEL 16 AL ${ultimoDia}`;
 
-    filas.push([texto(`${MESES[Number(numMes) - 1]} ${anio} · ${dias}`, { align: 'center', columnSpan: 2, fontWeight: 'bold' }), vacia()]);
+    filas.push([texto(`${MESES[Number(numMes) - 1]} ${parte === '1' ? '1 - 15' : `16 - ${ultimoDia}`}`, { align: 'center', columnSpan: 2, fontWeight: 'bold' }), vacia()]);
     const filaEntroMes = fila();
     const ingresosMes = delMes.filter((m) => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
     filas.push([texto(`ENTRÓ ${dias}`, { backgroundColor: LILA_FUERTE }), dinero(ingresosMes, { backgroundColor: LILA_FUERTE })]);
@@ -94,13 +93,13 @@ function hojaPorQuincena(movimientos, espacios) {
         .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
       filas.push([texto(e.nombre.toUpperCase() + (e.activo ? '' : ' (ARCHIVADO)'), { align: 'center', columnSpan: 2, backgroundColor: LILA_FUERTE }), vacia()]);
-      // Ingresos uno por uno (los montos en verde para distinguirlos de los gastos), y su total.
+      // Ingresos uno por uno, y su total.
       const desdeIngreso = fila();
       for (const m of entradas) {
         const concepto = m.tipo === 'traslado'
           ? `Traslado desde ${espacios.find((x) => x.id === m.espacio_id)?.nombre ?? 'otro espacio'}`
           : (m.descripcion || 'Ingreso');
-        filas.push([texto(concepto, { backgroundColor: LILA_SUAVE }), dinero(m.monto, { backgroundColor: LILA_SUAVE, textColor: VERDE })]);
+        filas.push([texto(concepto, { backgroundColor: LILA_SUAVE }), dinero(m.monto, { backgroundColor: LILA_SUAVE })]);
       }
       if (!entradas.length) filas.push([texto('Sin ingresos', { backgroundColor: LILA_SUAVE, textColor: '#7A6A8F' }), dinero(0, { backgroundColor: LILA_SUAVE })]);
       const filaEntro = fila();
