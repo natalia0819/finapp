@@ -11,6 +11,7 @@ const LILA_FUERTE = '#D5ABFF';
 const LILA_SUAVE = '#EAD5FF';
 const AMARILLO = '#FFF4CC'; // crema mantequilla: combina con el lila
 const AMARILLO_TOTAL = '#FFF4CC';
+const VERDE = '#1B7F3B'; // montos de ingresos en la hoja "Por mes"
 const FUENTE = 'Bahnschrift Light Condensed';
 // Formato contable de Excel con el símbolo y los decimales de la moneda elegida.
 function formatoExcel() {
@@ -55,41 +56,55 @@ function letra(i) {
   return s;
 }
 
-// ---------- Hoja 1: Por mes (bloques lado a lado, como las quincenas del Excel original) ----------
-function hojaPorMes(movimientos, espacios) {
-  const meses = [...new Set(movimientos.map((m) => m.fecha.slice(0, 7)))].sort();
+/** Mitad del mes de una fecha: "2026-10-1" (del 1 al 15) o "2026-10-2" (del 16 a fin de mes). */
+const quincenaDe = (fecha) => `${fecha.slice(0, 7)}-${Number(fecha.slice(8, 10)) <= 15 ? 1 : 2}`;
+
+// ---------- Hoja 1: Por mes, partido en dos: del 1 al 15 y del 16 a fin de mes (bloques lado a lado) ----------
+function hojaPorQuincena(movimientos, espacios) {
+  const quincenas = [...new Set(movimientos.map((m) => quincenaDe(m.fecha)))].sort();
   const FILA_INICIO = 2; // fila 2, como en el Excel original (la 1 queda de aire)
   const bloques = []; // cada bloque: lista de filas de 2 celdas [concepto, monto]
 
-  meses.forEach((mes, i) => {
+  quincenas.forEach((quincena, i) => {
     const col = 1 + i * 3; // B, E, H... (dos columnas por mes y una de separación)
     const L = letra(col);
     const M = letra(col + 1);
     const filas = [];
     const fila = () => FILA_INICIO + filas.length; // número de fila (1-based) de la siguiente fila
-    const delMes = movimientos.filter((m) => m.fecha.startsWith(mes));
-    const [anio, numMes] = mes.split('-');
+    const delMes = movimientos.filter((m) => quincenaDe(m.fecha) === quincena);
+    const [anio, numMes, parte] = quincena.split('-');
+    const ultimoDia = new Date(Number(anio), Number(numMes), 0).getDate();
+    const dias = parte === '1' ? 'DEL 1 AL 15' : `DEL 16 AL ${ultimoDia}`;
 
-    filas.push([texto(`${MESES[Number(numMes) - 1]} ${anio}`, { align: 'center', columnSpan: 2, fontWeight: 'bold' }), vacia()]);
+    filas.push([texto(`${MESES[Number(numMes) - 1]} ${anio} · ${dias}`, { align: 'center', columnSpan: 2, fontWeight: 'bold' }), vacia()]);
     const filaEntroMes = fila();
     const ingresosMes = delMes.filter((m) => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
-    filas.push([texto('ENTRÓ EN EL MES', { backgroundColor: LILA_FUERTE }), dinero(ingresosMes, { backgroundColor: LILA_FUERTE })]);
+    filas.push([texto(`ENTRÓ ${dias}`, { backgroundColor: LILA_FUERTE }), dinero(ingresosMes, { backgroundColor: LILA_FUERTE })]);
     filas.push([null, null]);
 
     const filasTotalGasto = [];
     for (const e of espacios) {
       const suyos = delMes.filter((m) => m.espacio_id === e.id || m.espacio_destino_id === e.id);
       if (!suyos.length) continue;
-      const entro = suyos.reduce((s, m) =>
-        s + (m.tipo === 'ingreso' && m.espacio_id === e.id ? m.monto : 0)
-          + (m.tipo === 'traslado' && m.espacio_destino_id === e.id ? m.monto : 0), 0);
+      const entradas = suyos
+        .filter((m) => (m.tipo === 'ingreso' && m.espacio_id === e.id) || (m.tipo === 'traslado' && m.espacio_destino_id === e.id))
+        .sort((a, b) => a.fecha.localeCompare(b.fecha));
       const salidas = suyos
         .filter((m) => (m.tipo === 'gasto' && m.espacio_id === e.id) || (m.tipo === 'traslado' && m.espacio_id === e.id))
         .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
       filas.push([texto(e.nombre.toUpperCase() + (e.activo ? '' : ' (ARCHIVADO)'), { align: 'center', columnSpan: 2, backgroundColor: LILA_FUERTE }), vacia()]);
+      // Ingresos uno por uno (los montos en verde para distinguirlos de los gastos), y su total.
+      const desdeIngreso = fila();
+      for (const m of entradas) {
+        const concepto = m.tipo === 'traslado'
+          ? `Traslado desde ${espacios.find((x) => x.id === m.espacio_id)?.nombre ?? 'otro espacio'}`
+          : (m.descripcion || 'Ingreso');
+        filas.push([texto(concepto, { backgroundColor: LILA_SUAVE }), dinero(m.monto, { backgroundColor: LILA_SUAVE, textColor: VERDE })]);
+      }
+      if (!entradas.length) filas.push([texto('Sin ingresos', { backgroundColor: LILA_SUAVE, textColor: '#7A6A8F' }), dinero(0, { backgroundColor: LILA_SUAVE })]);
       const filaEntro = fila();
-      filas.push([texto('INGRESOS', { backgroundColor: LILA_FUERTE }), dinero(entro, { backgroundColor: LILA_FUERTE })]);
+      filas.push([texto('TOTAL INGRESOS', { backgroundColor: LILA_FUERTE }), formula(`=SUM(${M}${desdeIngreso}:${M}${filaEntro - 1})`, { backgroundColor: LILA_FUERTE })]);
 
       const desde = fila();
       for (const m of salidas) {
@@ -108,10 +123,10 @@ function hojaPorMes(movimientos, espacios) {
       filas.push([null, null]);
     }
 
-    // Pie del mes: solo cuentan los gastos (los traslados mueven plata entre espacios, no la gastan).
+    // Pie de cada parte: solo cuentan los gastos (los traslados mueven plata entre espacios, no la gastan).
     const gastosMes = delMes.filter((m) => m.tipo === 'gasto').reduce((s, m) => s + m.monto, 0);
     const filaGastado = fila();
-    filas.push([texto('TOTAL GASTADO EN EL MES', { backgroundColor: LILA_FUERTE }), dinero(gastosMes, { backgroundColor: LILA_FUERTE })]);
+    filas.push([texto(`TOTAL GASTADO ${dias}`, { backgroundColor: LILA_FUERTE }), dinero(gastosMes, { backgroundColor: LILA_FUERTE })]);
     filas.push([texto('DISPONIBLE', { backgroundColor: AMARILLO, fontWeight: 'bold' }),
       formula(`=${M}${filaEntroMes}-${M}${filaGastado}`, { backgroundColor: AMARILLO, fontWeight: 'bold' })]);
 
@@ -131,7 +146,7 @@ function hojaPorMes(movimientos, espacios) {
     datos.push(fila);
   }
   const columnas = [{ width: 4.7 }];
-  bloques.forEach(() => columnas.push({ width: 26 }, { width: 18 }, { width: 4.7 }));
+  bloques.forEach(() => columnas.push({ width: 30 }, { width: 18 }, { width: 4.7 }));
   return { sheet: 'Por mes', data: datos, columns: columnas };
 }
 
@@ -275,7 +290,7 @@ function hojaDeudas(deudas, abonos, espacios, movimientos) {
  */
 export function armarHojas(movimientos, espacios, todos = movimientos, deudas = [], abonos = []) {
   const saldos = calcularSaldos(espacios, todos);
-  const hojas = [hojaPorMes(movimientos, espacios), hojaMovimientos(movimientos, espacios), hojaEspacios(espacios, saldos)];
+  const hojas = [hojaPorQuincena(movimientos, espacios), hojaMovimientos(movimientos, espacios), hojaEspacios(espacios, saldos)];
   if (deudas.length) hojas.push(hojaDeudas(deudas, abonos, espacios, todos));
   return hojas;
 }
