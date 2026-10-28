@@ -206,6 +206,7 @@ export default function App() {
             onNueva={() => setModal({ tipo: 'deuda', deuda: null })}
             onEditar={(deuda) => setModal({ tipo: 'deuda', deuda })}
             onAbonar={(deuda) => setModal({ tipo: 'abono', deuda, modo: 'abono' })}
+            onPagarTodo={(deuda) => setModal({ tipo: 'abono', deuda, modo: 'abono', todo: true })}
             onSumar={(deuda) => setModal({ tipo: 'abono', deuda, modo: 'aumento' })}
             onBorrarRegistro={pedirBorrarRegistro}
           />
@@ -295,6 +296,7 @@ export default function App() {
         <FormAbono
           deuda={modal.deuda}
           modo={modal.modo}
+          todo={modal.todo}
           abonos={datos.abonos}
           espacios={datos.espacios}
           saldosMedio={f.saldosMedio}

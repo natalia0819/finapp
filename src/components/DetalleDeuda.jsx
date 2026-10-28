@@ -1,13 +1,13 @@
 // Detalle de una deuda: cuánto falta, datos, nota, botones de abono y "sumar", e historial.
 // Al tocar un registro del historial se puede borrar (también se borra su movimiento en el espacio).
-import { ChevronLeft, HandCoins, Pencil, Plus, StickyNote, TrendingUp } from 'lucide-react';
+import { ChevronLeft, CircleCheck, HandCoins, Pencil, Plus, StickyNote, TrendingUp } from 'lucide-react';
 import { iconoDe } from '../constants/espacios';
 import { fechaCorta, pesos } from '../lib/formato';
 import { describirFechaPago, diaCorto, proximoPago, registrosDe, resumenDeuda, TIPOS_DEUDA } from '../lib/deudas';
 import { medioDe } from '../lib/movimientos';
 import { MarcaMedio } from './Medio';
 
-export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, conVolver, onVolver, onEditar, onAbonar, onSumar, onBorrarRegistro }) {
+export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, conVolver, onVolver, onEditar, onAbonar, onPagarTodo, onSumar, onBorrarRegistro }) {
   const r = resumenDeuda(deuda, abonos);
   const historial = registrosDe(deuda, abonos);
   const meDeben = deuda.tipo === 'me_deben';
@@ -18,7 +18,7 @@ export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, con
 
   /** Texto de la segunda línea de cada registro: de qué espacio salió o a cuál entró. */
   function lugar(reg, mov, espacio) {
-    if (!mov) return reg.nota || 'Sin espacio';
+    if (!mov) return `Sin espacio${reg.nota ? ` · ${reg.nota}` : ''}`;
     const nombre = espacio?.nombre ?? 'un espacio';
     const sale = mov.tipo === 'gasto';
     return `${sale ? 'Desde' : 'A'} ${nombre}${reg.nota ? ` · ${reg.nota}` : ''}`;
@@ -51,11 +51,16 @@ export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, con
 
       <div className="detalle-deuda__acciones">
         {!r.pagada && (
-          <button type="button" className="boton boton--principal boton--grande" onClick={onAbonar}>
-            <Plus aria-hidden="true" /> Registrar abono
-          </button>
+          <>
+            <button type="button" className="boton boton--principal boton--grande detalle-deuda__abonar" onClick={onAbonar}>
+              <Plus aria-hidden="true" /> Registrar abono
+            </button>
+            <button type="button" className="boton boton--contorno boton--grande" onClick={onPagarTodo}>
+              <CircleCheck aria-hidden="true" /> {meDeben ? 'Me pagaron todo' : 'Pagar todo'}
+            </button>
+          </>
         )}
-        <button type="button" className="boton boton--suave boton--grande" onClick={onSumar}>
+        <button type="button" className={`boton boton--suave boton--grande ${r.pagada ? 'detalle-deuda__abonar' : ''}`} onClick={onSumar}>
           <TrendingUp aria-hidden="true" /> Sumar a la deuda
         </button>
       </div>

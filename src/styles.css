@@ -515,7 +515,9 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .detalle-deuda__dato-ancho { grid-column: 1 / -1; }
 .detalle-deuda__nota { display: flex; gap: .4rem; align-items: flex-start; margin: 0; font-size: .88rem; color: var(--texto-suave); }
 .detalle-deuda__nota svg { width: 16px; height: 16px; margin-top: 2px; }
-.detalle-deuda__acciones { display: grid; gap: .6rem; }
+.detalle-deuda__acciones { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.detalle-deuda__abonar { grid-column: 1 / -1; }
+.detalle-deuda__acciones .boton:not(.detalle-deuda__abonar) { font-size: .95rem; padding-inline: .5rem; gap: .4rem; }
 .detalle-deuda__acciones .boton { flex: none; }
 .detalle-deuda__subtitulo { font-size: 1.1rem; margin: 0 0 .6rem; }
 .segmentos--deuda { grid-template-columns: 1fr 1fr; }

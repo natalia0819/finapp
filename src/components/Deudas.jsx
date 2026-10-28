@@ -30,7 +30,7 @@ const SECCIONES = [
   { id: 'pagadas', titulo: 'Pagadas', Icono: CircleCheck, clase: 'neutro', sub: (n) => (n === 1 ? '1 deuda saldada' : `${n} deudas saldadas`) },
 ];
 
-export default function Deudas({ deudas, abonos, espacios, movimientos, seleccion, onSeleccionar, onNueva, onEditar, onAbonar, onSumar, onBorrarRegistro }) {
+export default function Deudas({ deudas, abonos, espacios, movimientos, seleccion, onSeleccionar, onNueva, onEditar, onAbonar, onPagarTodo, onSumar, onBorrarRegistro }) {
   const esPC = usarEsPC();
   // En PC se recuerda qué secciones dejaste abiertas; en el celular siempre empieza todo recogido.
   const [abiertas, setAbiertas] = useState(() => (window.matchMedia('(min-width: 900px)').matches ? leerAbiertas() : []));
@@ -54,6 +54,7 @@ export default function Deudas({ deudas, abonos, espacios, movimientos, seleccio
       onVolver={() => onSeleccionar(null)}
       onEditar={() => onEditar(elegida)}
       onAbonar={() => onAbonar(elegida)}
+      onPagarTodo={() => onPagarTodo(elegida)}
       onSumar={() => onSumar(elegida)}
       onBorrarRegistro={onBorrarRegistro}
     />
