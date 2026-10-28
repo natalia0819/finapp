@@ -29,6 +29,12 @@ const base = { fontFamily: FUENTE, fontSize: 11, borderStyle: 'thin', borderColo
 const texto = (value, extra = {}) => ({ ...base, type: String, value: String(value ?? ''), ...extra });
 const dinero = (value, extra = {}) => ({ ...base, type: Number, value: Number(value) || 0, format: formatoExcel(), ...extra });
 const formula = (value, extra = {}) => ({ ...base, type: 'Formula', value, format: formatoExcel(), ...extra });
+/** Factura: enlace "Ver factura" a Drive, "Pendiente de subir" si aún no se sube, o vacío. */
+const celdaFactura = (ref, extra = {}) => {
+  if (!ref) return texto('', extra);
+  if (!String(ref).startsWith('http')) return texto('Pendiente de subir', { ...extra, textColor: '#8A8A8A', fontStyle: 'italic' });
+  return { ...base, type: 'Formula', value: `HYPERLINK("${ref}","Ver factura")`, textColor: '#5B21B6', textDecoration: { underline: true }, ...extra };
+};
 const vacia = () => null;
 
 /**
@@ -132,7 +138,7 @@ function hojaPorMes(movimientos, espacios) {
 // ---------- Hoja 2: Movimientos (detalle) ----------
 function hojaMovimientos(movimientos, espacios) {
   const nombre = (id) => espacios.find((e) => e.id === id)?.nombre ?? '';
-  const encabezado = ['Fecha', 'Tipo', 'Espacio', 'Hacia (traslados)', 'Descripción', 'Medio', 'Entró', 'Salió']
+  const encabezado = ['Fecha', 'Tipo', 'Espacio', 'Hacia (traslados)', 'Descripción', 'Medio', 'Entró', 'Salió', 'Factura']
     .map((t) => texto(t, { backgroundColor: LILA_FUERTE, align: 'center', fontWeight: 'bold' }));
   const filas = [...movimientos].sort((a, b) => a.fecha.localeCompare(b.fecha)).map((m) => {
     const fondo = { backgroundColor: LILA_SUAVE };
@@ -146,6 +152,7 @@ function hojaMovimientos(movimientos, espacios) {
       texto(TEXTO_MEDIO[medioDe(m)], fondo),
       m.tipo === 'ingreso' ? dinero(m.monto, fondo) : texto('', fondo),
       m.tipo === 'gasto' ? dinero(m.monto, fondo) : texto('', fondo),
+      celdaFactura(m.factura, fondo),
     ];
   });
   const ultima = filas.length + 1;
@@ -153,15 +160,17 @@ function hojaMovimientos(movimientos, espacios) {
     texto('TOTAL', { backgroundColor: LILA_FUERTE, columnSpan: 6, fontWeight: 'bold' }), null, null, null, null, null,
     formula(`=SUM(G2:G${Math.max(2, ultima)})`, { backgroundColor: LILA_FUERTE, fontWeight: 'bold' }),
     formula(`=SUM(H2:H${Math.max(2, ultima)})`, { backgroundColor: LILA_FUERTE, fontWeight: 'bold' }),
+    texto('', { backgroundColor: LILA_FUERTE }),
   ];
   const disponible = [
     texto('DISPONIBLE (entró − salió)', { backgroundColor: AMARILLO, columnSpan: 6, fontWeight: 'bold' }), null, null, null, null, null,
     formula(`=G${ultima + 1}-H${ultima + 1}`, { backgroundColor: AMARILLO, fontWeight: 'bold', columnSpan: 2 }), null,
+    texto('', { backgroundColor: AMARILLO }),
   ];
   return {
     sheet: 'Movimientos',
     data: [encabezado, ...filas, totales, disponible],
-    columns: [{ width: 17 }, { width: 10 }, { width: 24 }, { width: 22 }, { width: 34 }, { width: 11 }, { width: 16 }, { width: 16 }],
+    columns: [{ width: 17 }, { width: 10 }, { width: 24 }, { width: 22 }, { width: 34 }, { width: 11 }, { width: 16 }, { width: 16 }, { width: 20 }],
     stickyRowsCount: 1,
   };
 }
@@ -197,7 +206,7 @@ function hojaEspacios(espacios, saldos) {
 function hojaDeudas(deudas, abonos, espacios, movimientos) {
   const titulo = (t) => texto(t, { backgroundColor: LILA_FUERTE, align: 'center', fontWeight: 'bold' });
   const fondo = { backgroundColor: LILA_SUAVE };
-  const encabezado = ['Deuda', 'Tipo', 'Total', 'Abonado', 'Pendiente', 'Avance', 'Fecha de pago', 'Nota', 'Estado'].map(titulo);
+  const encabezado = ['Deuda', 'Tipo', 'Total', 'Abonado', 'Pendiente', 'Avance', 'Fecha de pago', 'Nota', 'Estado', 'Factura'].map(titulo);
   const orden = [...deudas].sort((a, b) => (a.tipo === b.tipo ? a.fecha.localeCompare(b.fecha) : a.tipo === 'debo' ? -1 : 1));
   const filas = orden.map((d, i) => {
     const r = i + 2;
@@ -214,6 +223,7 @@ function hojaDeudas(deudas, abonos, espacios, movimientos) {
       limite ? { ...base, ...fondo, type: Date, value: limite, format: 'dd/mm/yyyy' } : texto(fp.modo === 'mes' ? describirFechaPago(d.fecha_limite) : '', fondo),
       texto(d.nota, fondo),
       texto(res.pagada ? 'Saldada' : 'Activa', fondo),
+      celdaFactura(d.factura, fondo),
     ];
   });
   const n = Math.max(2, filas.length + 1);
@@ -221,7 +231,7 @@ function hojaDeudas(deudas, abonos, espacios, movimientos) {
   const totalFila = (rotulo, tipo) => [
     texto(rotulo, amarillo), texto('', amarillo), texto('', amarillo), texto('', amarillo),
     formula(`=SUMIF(B2:B${n},"${tipo}",E2:E${n})`, amarillo),
-    texto('', amarillo), texto('', amarillo), texto('', amarillo), texto('', amarillo),
+    texto('', amarillo), texto('', amarillo), texto('', amarillo), texto('', amarillo), texto('', amarillo),
   ];
 
   // Historial: abonos y lo que se sumó a cada deuda.
@@ -238,21 +248,22 @@ function hojaDeudas(deudas, abonos, espacios, movimientos) {
       texto(mov ? TEXTO_MEDIO[medioDe(mov)] : '', fondo),
       dinero(a.monto, fondo),
       texto(a.nota, fondo),
+      celdaFactura(a.factura, fondo),
       null, null,
     ];
   });
 
   const data = [encabezado, ...filas, totalFila('TOTAL QUE DEBES', 'Debo'), totalFila('TOTAL QUE TE DEBEN', 'Me deben')];
   if (historial.length) {
-    data.push(Array(9).fill(null));
-    data.push([texto('Historial de abonos', { fontWeight: 'bold', borderStyle: undefined }), null, null, null, null, null, null, null, null]);
-    data.push([...['Fecha', 'Deuda', 'Tipo', 'Espacio', 'Medio', 'Monto', 'Nota'].map(titulo), null, null]);
+    data.push(Array(10).fill(null));
+    data.push([texto('Historial de abonos', { fontWeight: 'bold', borderStyle: undefined }), null, null, null, null, null, null, null, null, null]);
+    data.push([...['Fecha', 'Deuda', 'Tipo', 'Espacio', 'Medio', 'Monto', 'Nota', 'Factura'].map(titulo), null, null]);
     data.push(...historial);
   }
   return {
     sheet: 'Deudas',
     data,
-    columns: [{ width: 26 }, { width: 22 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 14 }, { width: 30 }, { width: 10 }],
+    columns: [{ width: 26 }, { width: 22 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 14 }, { width: 30 }, { width: 10 }, { width: 20 }],
     stickyRowsCount: 1,
   };
 }

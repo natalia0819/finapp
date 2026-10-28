@@ -13,9 +13,9 @@ const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 export const COLUMNAS = {
   Perfil: ['apodo', 'fecha_registro', 'avatar', 'moneda'],
   Espacios: ['id', 'nombre', 'color', 'icono', 'meta', 'activo', 'es_predeterminado', 'fecha_creacion'],
-  Movimientos: ['id', 'fecha', 'tipo', 'monto', 'espacio_id', 'espacio_destino_id', 'descripcion', 'grupo_id', 'medio'],
-  Deudas: ['id', 'nombre', 'tipo', 'monto', 'fecha', 'fecha_limite', 'nota', 'movimiento_id'],
-  Abonos: ['id', 'deuda_id', 'deuda', 'tipo', 'fecha', 'monto', 'nota', 'movimiento_id'],
+  Movimientos: ['id', 'fecha', 'tipo', 'monto', 'espacio_id', 'espacio_destino_id', 'descripcion', 'grupo_id', 'medio', 'factura'],
+  Deudas: ['id', 'nombre', 'tipo', 'monto', 'fecha', 'fecha_limite', 'nota', 'movimiento_id', 'factura'],
+  Abonos: ['id', 'deuda_id', 'deuda', 'tipo', 'fecha', 'monto', 'nota', 'movimiento_id', 'factura'],
 };
 
 /** Pestañas con filas de datos (todas menos Perfil). */
@@ -108,9 +108,9 @@ export async function crearHoja() {
       data: [
         { range: 'Perfil!A1:D1', values: [COLUMNAS.Perfil] },
         { range: 'Espacios!A1:H3', values: [COLUMNAS.Espacios, ...filasEspacios] },
-        { range: 'Movimientos!A1:I1', values: [COLUMNAS.Movimientos] },
-        { range: 'Deudas!A1:H1', values: [COLUMNAS.Deudas] },
-        { range: 'Abonos!A1:H1', values: [COLUMNAS.Abonos] },
+        { range: 'Movimientos!A1:J1', values: [COLUMNAS.Movimientos] },
+        { range: 'Deudas!A1:I1', values: [COLUMNAS.Deudas] },
+        { range: 'Abonos!A1:I1', values: [COLUMNAS.Abonos] },
       ],
     }),
   });
@@ -157,7 +157,7 @@ async function asegurarPestanas(id) {
 /** Lee perfil, espacios y movimientos en una sola llamada (y repara filas corridas, si las hay). */
 export async function leerDatos(id) {
   await asegurarPestanas(id);
-  const rangos = ['Perfil!A2:D2', 'Espacios!A2:I', 'Movimientos!A2:J', 'Deudas!A2:H', 'Abonos!A2:H']
+  const rangos = ['Perfil!A2:D2', 'Espacios!A2:I', 'Movimientos!A2:K', 'Deudas!A2:I', 'Abonos!A2:I']
     .map((r) => `ranges=${rango(r)}`).join('&');
   const datos = await llamar(`${SHEETS}/${id}/values:batchGet?${rangos}&valueRenderOption=UNFORMATTED_VALUE`);
   const [perfil, espaciosCrudos, movimientosCrudos, deudasCrudas, abonosCrudos] = datos.valueRanges.map((v) => v.values ?? []);
@@ -196,6 +196,69 @@ export async function leerDatos(id) {
 }
 
 // ------------------------------------------------------------------
+// Facturas: carpeta "FinApp · Facturas" en el Drive del usuario
+// ------------------------------------------------------------------
+const NOMBRE_CARPETA = 'FinApp · Facturas';
+const CLAVE_CARPETA = 'fe_carpeta_facturas';
+
+/** Id de la carpeta de facturas; la crea la primera vez (queda junto a la hoja, en Mi unidad). */
+export async function carpetaFacturas() {
+  try {
+    const guardada = localStorage.getItem(CLAVE_CARPETA);
+    if (guardada) return guardada;
+  } catch { /* sin almacenamiento */ }
+  const q = `appProperties has { key='app' and value='${APP_KEY}-facturas' } and trashed=false`;
+  const busqueda = await llamar(`${DRIVE}?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`);
+  let id = busqueda.files?.[0]?.id;
+  if (!id) {
+    const carpeta = await llamar(`${DRIVE}?fields=id`, {
+      method: 'POST',
+      body: JSON.stringify({ name: NOMBRE_CARPETA, mimeType: 'application/vnd.google-apps.folder', appProperties: { app: `${APP_KEY}-facturas` } }),
+    });
+    id = carpeta.id;
+  }
+  try { localStorage.setItem(CLAVE_CARPETA, id); } catch { /* sin almacenamiento */ }
+  return id;
+}
+
+/** Sube una factura a la carpeta y devuelve el id del archivo en Drive. */
+export async function subirFactura({ blob, tipo, nombre }) {
+  const token = obtenerToken();
+  if (!token) throw new ErrorGoogle('Tu sesión de Google terminó. Vuelve a conectarte.', 401);
+  let carpeta = await carpetaFacturas();
+  const enviar = async () => {
+    const cuerpo = new FormData();
+    cuerpo.append('metadata', new Blob([JSON.stringify({ name: nombre, mimeType: tipo, parents: [carpeta] })], { type: 'application/json' }));
+    cuerpo.append('file', blob, nombre);
+    try {
+      return await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: cuerpo,
+      });
+    } catch {
+      throw new ErrorGoogle('Sin conexión a internet.', 0);
+    }
+  };
+  let resp = await enviar();
+  if (resp.status === 404) {
+    // La carpeta se borró: se crea otra y se intenta de nuevo.
+    try { localStorage.removeItem(CLAVE_CARPETA); } catch { /* nada */ }
+    carpeta = await carpetaFacturas();
+    resp = await enviar();
+  }
+  if (!resp.ok) throw new ErrorGoogle(`No se pudo subir la factura (${resp.status}).`, resp.status);
+  return (await resp.json()).id;
+}
+
+/** Manda una factura a la papelera de Drive (se puede recuperar desde allá). */
+export async function facturaAPapelera(idArchivo) {
+  try {
+    await llamar(`${DRIVE}/${idArchivo}`, { method: 'PATCH', body: JSON.stringify({ trashed: true }) });
+  } catch (e) {
+    if (e.estado !== 404) throw e; // si ya no existía, no hay nada que hacer
+  }
+}
+
+// ------------------------------------------------------------------
 // Sincronización: aplica la cola de cambios hechos en el dispositivo
 // ------------------------------------------------------------------
 // Cada operación es "idempotente": si se aplica dos veces (por ejemplo,
@@ -204,6 +267,7 @@ export async function leerDatos(id) {
 //   { op: 'guardar',  hoja: 'Espacios' | 'Movimientos' | 'Deudas' | 'Abonos', objetos: [...] }
 //   { op: 'eliminar', hoja: 'Espacios' | 'Movimientos' | 'Deudas' | 'Abonos', ids: [...] }
 //   { op: 'perfil',   perfil: { apodo, fecha_registro, avatar, moneda } }
+//   { op: 'papelera', archivo: '<id de Drive>' }  (factura que ya nadie usa)
 
 export async function sincronizarCola(idHoja, cola, alCompletar) {
   if (!cola.length) return;
@@ -238,6 +302,8 @@ export async function sincronizarCola(idHoja, cola, alCompletar) {
       await guardarFilas(idHoja, op.hoja, op.objetos, tablas[op.hoja], pestanas[op.hoja]);
     } else if (op.op === 'eliminar') {
       await eliminarFilas(idHoja, op.ids, tablas[op.hoja], pestanas[op.hoja]);
+    } else if (op.op === 'papelera') {
+      await facturaAPapelera(op.archivo); // factura que ya nadie usa
     }
     alCompletar(op.id); // se quita de la cola apenas Google confirma
   }
@@ -251,8 +317,8 @@ async function guardarFilas(idHoja, hoja, objetos, tabla, pestana) {
   const aFila = A_FILA[hoja];
   const fin = letra(COLUMNAS[hoja].length); // última columna: H en Espacios, I en Movimientos
   const escrituras = [];
-  // Encabezado completo, por si la hoja es de antes de que existiera la columna "medio".
-  if (hoja === 'Movimientos') escrituras.push({ range: `Movimientos!A1:${fin}1`, values: [COLUMNAS.Movimientos] });
+  // Encabezado completo, por si la hoja es de antes de que existieran las columnas "medio" o "factura".
+  if (hoja !== 'Espacios') escrituras.push({ range: `${hoja}!A1:${fin}1`, values: [COLUMNAS[hoja]] });
   const nuevos = [];
   for (const obj of objetos) {
     const indice = tabla.ids.indexOf(obj.id);
@@ -342,11 +408,11 @@ function filaAEspacio(f) {
 
 function movimientoAFila(m) {
   return [m.id, m.fecha, m.tipo, Number(m.monto), m.espacio_id, m.espacio_destino_id || '',
-    m.descripcion || '', m.grupo_id || '', medioDe(m)];
+    m.descripcion || '', m.grupo_id || '', medioDe(m), m.factura || ''];
 }
 
 function deudaAFila(d) {
-  return [d.id, d.nombre, d.tipo === 'me_deben' ? 'me deben' : 'debo', Number(d.monto), d.fecha, d.fecha_limite || '', d.nota || '', d.movimiento_id || ''];
+  return [d.id, d.nombre, d.tipo === 'me_deben' ? 'me deben' : 'debo', Number(d.monto), d.fecha, d.fecha_limite || '', d.nota || '', d.movimiento_id || '', d.factura || ''];
 }
 
 function filaADeuda(f) {
@@ -359,11 +425,12 @@ function filaADeuda(f) {
     fecha_limite: String(f[5] ?? ''),
     nota: String(f[6] ?? ''),
     movimiento_id: String(f[7] ?? ''),
+    factura: String(f[8] ?? ''),
   };
 }
 
 function abonoAFila(a) {
-  return [a.id, a.deuda_id, a.deuda || '', a.tipo === 'aumento' ? 'aumento' : 'abono', a.fecha, Number(a.monto), a.nota || '', a.movimiento_id || ''];
+  return [a.id, a.deuda_id, a.deuda || '', a.tipo === 'aumento' ? 'aumento' : 'abono', a.fecha, Number(a.monto), a.nota || '', a.movimiento_id || '', a.factura || ''];
 }
 
 function filaAAbono(f) {
@@ -376,6 +443,7 @@ function filaAAbono(f) {
     monto: Math.abs(Number(f[5])) || 0,
     nota: String(f[6] ?? ''),
     movimiento_id: String(f[7] ?? ''),
+    factura: String(f[8] ?? ''),
   };
 }
 
@@ -395,6 +463,7 @@ function filaAMovimiento(f) {
     descripcion: String(f[6] ?? ''),
     grupo_id: String(f[7] ?? ''),
     medio: String(f[8] ?? '').toLowerCase() === 'efectivo' ? 'efectivo' : 'digital',
+    factura: String(f[9] ?? ''),
   };
 }
 
@@ -417,14 +486,14 @@ function formatoDinero() {
   const numero = m.decimales > 0 ? '#,##0.00' : '#,##0';
   return { type: 'CURRENCY', pattern: m.simboloDespues ? `${numero} "${m.simbolo}"` : `"${m.simbolo}" ${numero}` };
 }
-const ANCHO_TABLA = { Perfil: 4, Espacios: 8, Movimientos: 9, Deudas: 8, Abonos: 8 };
+const ANCHO_TABLA = { Perfil: 4, Espacios: 8, Movimientos: 10, Deudas: 9, Abonos: 9 };
 const COLUMNA_PESOS = { Espacios: 4, Movimientos: 3, Deudas: 3, Abonos: 5 }; // meta (E) y montos
 const ANCHOS = {
   Perfil: [200, 170, 120, 90],
   Espacios: [110, 220, 90, 120, 130, 70, 140, 160],
-  Movimientos: [110, 160, 90, 130, 150, 170, 260, 110, 90],
-  Deudas: [110, 220, 90, 130, 160, 110, 260, 110],
-  Abonos: [110, 110, 220, 90, 160, 130, 240, 110],
+  Movimientos: [110, 160, 90, 130, 150, 170, 260, 110, 90, 300],
+  Deudas: [110, 220, 90, 130, 160, 110, 260, 110, 300],
+  Abonos: [110, 110, 220, 90, 160, 130, 240, 110, 300],
 };
 const OCULTAS = { Espacios: [0], Movimientos: [0, 7], Deudas: [0, 7], Abonos: [0, 1, 7] }; // ids internos: la app los usa, la persona no los necesita ver
 

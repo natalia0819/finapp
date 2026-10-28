@@ -8,9 +8,11 @@ import Hoja from './Hoja';
 import CampoMonto from './CampoMonto';
 import SelectorEspacio from './SelectorEspacio';
 import SelectorMedio from './Medio';
+import CampoFactura from './Factura';
 import { fechaAInput, fechaAhora, fechaCorta, generarId, inputAFecha, pesos } from '../lib/formato';
 import { TEXTO_MEDIO, validarCambio } from '../lib/movimientos';
 import { resumenDeuda } from '../lib/deudas';
+import { confirmarFactura } from '../lib/facturas';
 
 const enMedio = (medio) => `en ${TEXTO_MEDIO[medio].toLowerCase()}`;
 
@@ -24,6 +26,8 @@ export default function FormAbono({ deuda, modo = 'abono', todo = false, abonos,
   const [medio, setMedio] = useState('digital');
   const [espacioId, setEspacioId] = useState('');
   const [nota, setNota] = useState('');
+  const [factura, setFactura] = useState(null);
+  const [guardando, setGuardando] = useState(false);
   const [fecha, setFecha] = useState(null); // null = ahora
   const [cambiandoFecha, setCambiandoFecha] = useState(false);
   const [errores, setErrores] = useState({});
@@ -43,7 +47,8 @@ export default function FormAbono({ deuda, modo = 'abono', todo = false, abonos,
     return meDeben ? `Préstamo a ${deuda.nombre}` : `Préstamo: ${deuda.nombre}`;
   }
 
-  function enviar() {
+  async function enviar() {
+    if (guardando) return;
     const e = {};
     if (!monto || monto <= 0) e.monto = 'Escribe un monto mayor a $ 0.';
     else if (esAbono && Number(monto) > r.pendiente) e.monto = `Solo ${meDeben ? 'te deben' : 'faltan'} ${pesos(r.pendiente)}.`;
@@ -61,13 +66,23 @@ export default function FormAbono({ deuda, modo = 'abono', todo = false, abonos,
     }
     setErrores(e);
     if (Object.keys(e).length) return;
+    // La factura se guarda primero en el dispositivo; se sube a Drive al sincronizar.
+    setGuardando(true);
+    let ref = '';
+    try {
+      ref = await confirmarFactura(factura, [cuando.slice(0, 10), descripcion(), pesos(monto)]);
+    } catch {
+      setGuardando(false);
+      setErrores({ factura: 'No se pudo guardar la factura en este dispositivo. Intenta de nuevo o quítala.' });
+      return;
+    }
     onGuardar({
       id: generarId(), deuda_id: deuda.id, deuda: deuda.nombre, tipo: modo, fecha: cuando,
-      monto: Number(monto), nota: nota.trim(), movimiento_id: mov ? mov.id : '',
-    }, mov);
+      monto: Number(monto), nota: nota.trim(), movimiento_id: mov ? mov.id : '', factura: ref,
+    }, mov && { ...mov, factura: ref });
   }
 
-  const pie = <button type="submit" className="boton boton--principal boton--flex"><Check aria-hidden="true" /> Guardar</button>;
+  const pie = <button type="submit" className="boton boton--principal boton--flex" disabled={guardando}><Check aria-hidden="true" /> Guardar</button>;
 
   return (
     <Hoja titulo={todo ? (meDeben ? 'Me pagaron todo' : 'Pagar todo') : esAbono ? 'Registrar abono' : 'Sumar a la deuda'} onCerrar={onCerrar} onSubmit={enviar} pie={pie}>
@@ -122,6 +137,9 @@ export default function FormAbono({ deuda, modo = 'abono', todo = false, abonos,
           </div>
         )}
       </div>
+
+      <CampoFactura valor={factura} onCambio={(v) => { setFactura(v); setErrores((x) => ({ ...x, factura: undefined })); }} />
+      {errores.factura && <p className="alerta" role="alert">{errores.factura}</p>}
     </Hoja>
   );
 }

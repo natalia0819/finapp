@@ -1,5 +1,5 @@
 // Una fila del historial: ícono del espacio, descripción, espacio, hora y monto con signo.
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Paperclip } from 'lucide-react';
 import { iconoDe } from '../constants/espacios';
 import { fechaCorta, hora, pesos } from '../lib/formato';
 import { medioDe, signo, TEXTO_TIPO } from '../lib/movimientos';
@@ -18,7 +18,7 @@ export default function FilaMovimiento({ mov, espacios, onAbrir, soloHora, relat
       <button type="button" className="mov" style={{ '--c': espacio?.color ?? '#7C3AED' }} onClick={() => onAbrir?.(mov)}>
         <span className="mov__icono"><Icono aria-hidden="true" /></span>
         <span className="mov__texto">
-          <strong>{mov.descripcion || TEXTO_TIPO[mov.tipo]}</strong>
+          <strong>{mov.descripcion || TEXTO_TIPO[mov.tipo]}{mov.factura && <Paperclip className="clip" aria-label="Con factura" />}</strong>
           <small>
             <MarcaMedio medio={medioDe(mov)} className="marca-medio--mini" />
             {mov.tipo === 'traslado'

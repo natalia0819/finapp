@@ -5,7 +5,10 @@
 // cuando hay internet y sesión. Así se puede registrar sin conexión.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { borrarLocal, cargarLocal, guardarLocal } from '../lib/almacenLocal';
-import { buscarHoja, calcularSaldos, crearHoja, darFormatoHoja, leerDatos, sincronizarCola } from '../lib/sheetsApi';
+import { buscarHoja, calcularSaldos, crearHoja, darFormatoHoja, leerDatos, sincronizarCola, subirFactura } from '../lib/sheetsApi';
+import {
+  borrarArchivo, borrarTodo, clavesGuardadas, enlaceDrive, esPendiente, facturasEnUso, guardarArchivo, idDrive, leerArchivo,
+} from '../lib/facturas';
 import { cerrarSesion, obtenerToken, olvidarCuenta } from '../lib/googleAuth';
 import { fechaAhora, generarId } from '../lib/formato';
 import { calcularSaldosPorMedio, MEDIOS } from '../lib/movimientos';
@@ -41,6 +44,10 @@ export function useFinanzas() {
   const corriendo = useRef(false);
   const repetir = useRef(false);
   const temporizador = useRef(null);
+  const datosRef = useRef(datos);
+  datosRef.current = datos;
+  const subiendo = useRef(false);
+  const [facturasLocales, setFacturasLocales] = useState(0); // facturas guardadas en el dispositivo que faltan por subir
 
   const setCola = (nueva) => { colaRef.current = nueva; setColaEstado(nueva); };
   idRef.current = idHoja;
@@ -80,6 +87,7 @@ export function useFinanzas() {
       }
       setUltimaSync(fechaAhora());
       setSync({ estado: 'al-dia', error: '' });
+      subirPendientes().catch((e) => console.warn('Una factura no se pudo subir (se intentará de nuevo)', e));
     } catch (e) {
       if (e.estado === 401) { cerrarSesion(); setSync({ estado: 'sin-sesion', error: '' }); }
       else if (e.estado === 0) setSync({ estado: 'sin-conexion', error: '' });
@@ -107,11 +115,65 @@ export function useFinanzas() {
 
   /** Aplica un cambio en pantalla y lo deja en cola para subirlo. */
   function encolar(operaciones, cambio) {
+    // Facturas que con este cambio ya nadie usa: la de Drive va a la papelera; la del dispositivo se borra.
+    const antes = facturasEnUso(datosRef.current);
+    const despues = facturasEnUso(completar(cambio(datosRef.current)));
+    const papelera = [];
+    for (const ref of antes) {
+      if (despues.has(ref)) continue;
+      borrarArchivo(ref);
+      const archivo = idDrive(ref);
+      if (archivo) papelera.push({ op: 'papelera', archivo });
+    }
     setDatos(cambio);
-    setCola([...colaRef.current, ...operaciones.map((op) => ({ ...op, id: generarId() }))]);
+    setCola([...colaRef.current, ...[...operaciones, ...papelera].map((op) => ({ ...op, id: generarId() }))]);
     clearTimeout(temporizador.current);
     temporizador.current = setTimeout(() => sincronizar({ traerCambios: false }), 400);
   }
+
+  /**
+   * Sube a Drive las facturas que se adjuntaron (con o sin internet) y cambia, en todos los registros que la usan,
+   * "pendiente:..." por el enlace de Drive. En el dispositivo queda una copia para verla rápido.
+   */
+  async function subirPendientes() {
+    if (subiendo.current) return;
+    subiendo.current = true;
+    try {
+      const claves = (await clavesGuardadas()).filter(esPendiente);
+      for (const ref of claves) {
+        const archivo = await leerArchivo(ref);
+        if (!archivo) continue;
+        if (!facturasEnUso(datosRef.current).has(ref)) {
+          // Nadie la usa (se borró el registro antes de subirla). Se espera un minuto por si se está guardando.
+          if (Date.now() - (archivo.creado ?? 0) > 60000) await borrarArchivo(ref);
+          continue;
+        }
+        const enlace = enlaceDrive(await subirFactura(archivo));
+        await guardarArchivo(enlace, archivo);
+        await borrarArchivo(ref);
+        reemplazarFactura(ref, enlace);
+      }
+    } finally {
+      subiendo.current = false;
+      contarFacturasLocales();
+    }
+  }
+
+  function reemplazarFactura(ref, enlace) {
+    const ops = [];
+    const cambiar = (lista) => lista.map((x) => (x.factura === ref ? { ...x, factura: enlace } : x));
+    for (const [hoja, clave] of [['Movimientos', 'movimientos'], ['Deudas', 'deudas'], ['Abonos', 'abonos']]) {
+      const objetos = cambiar(datosRef.current[clave].filter((x) => x.factura === ref));
+      if (objetos.length) ops.push({ op: 'guardar', hoja, objetos });
+    }
+    if (!ops.length) return;
+    encolar(ops, (d) => ({ ...d, movimientos: cambiar(d.movimientos), deudas: cambiar(d.deudas), abonos: cambiar(d.abonos) }));
+  }
+
+  function contarFacturasLocales() {
+    clavesGuardadas().then((c) => setFacturasLocales(c.filter(esPendiente).length));
+  }
+  useEffect(contarFacturasLocales, [datos]);
 
   /** Después de iniciar sesión con Google: encuentra o crea la hoja y la sincroniza. */
   async function conectar() {
@@ -129,6 +191,8 @@ export function useFinanzas() {
   function salir() {
     olvidarCuenta();
     borrarLocal();
+    borrarTodo();
+    try { localStorage.removeItem('fe_carpeta_facturas'); } catch { /* nada */ }
     idRef.current = null;
     setIdHoja(null);
     setDatos(VACIO);
@@ -261,7 +325,7 @@ export function useFinanzas() {
   const saldosMedio = useMemo(() => calcularSaldosPorMedio(datos.espacios, datos.movimientos), [datos]);
 
   return {
-    idHoja, datos, saldos, saldosMedio, pendientes: cola.length, ultimaSync, sync,
+    idHoja, datos, saldos, saldosMedio, pendientes: cola.length + facturasLocales, ultimaSync, sync,
     conectar, sincronizar, salir,
     guardarPerfil, guardarEspacio, eliminarEspacio, archivarEspacio,
     guardarMovimientos, eliminarMovimiento,

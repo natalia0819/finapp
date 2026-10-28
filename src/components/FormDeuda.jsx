@@ -7,9 +7,11 @@ import Confirmar from './Confirmar';
 import CampoMonto from './CampoMonto';
 import SelectorEspacio from './SelectorEspacio';
 import SelectorMedio from './Medio';
+import CampoFactura from './Factura';
 import { fechaAhora, generarId, pesos } from '../lib/formato';
 import { TEXTO_MEDIO, validarCambio } from '../lib/movimientos';
 import { diaCorto, guardarFechaPago, leerFechaPago, proximoPago } from '../lib/deudas';
+import { confirmarFactura } from '../lib/facturas';
 
 const enMedio = (medio) => `en ${TEXTO_MEDIO[medio].toLowerCase()}`;
 
@@ -18,6 +20,8 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
   const [tipo, setTipo] = useState(deuda?.tipo ?? 'debo');
   const [nombre, setNombre] = useState(deuda?.nombre ?? '');
   const [monto, setMonto] = useState(deuda?.monto ?? '');
+  const [factura, setFactura] = useState(deuda?.factura ? { ref: deuda.factura } : null);
+  const [guardando, setGuardando] = useState(false);
   const [conectar, setConectar] = useState(false);
   const [medio, setMedio] = useState('digital');
   const [espacioId, setEspacioId] = useState('');
@@ -38,7 +42,8 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
     [saldosMedio, medio],
   );
 
-  function enviar() {
+  async function enviar() {
+    if (guardando) return;
     const e = {};
     const limpio = nombre.trim();
     if (!limpio) e.nombre = tipo === 'debo' ? 'Escribe qué es o a quién le debes.' : 'Escribe quién te debe o por qué.';
@@ -60,15 +65,27 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
     }
     setErrores(e);
     if (Object.keys(e).length) return;
+    // La factura se guarda primero en el dispositivo; se sube a Drive al sincronizar.
+    const fecha = deuda?.fecha ?? fechaAhora();
+    setGuardando(true);
+    let ref = '';
+    try {
+      ref = await confirmarFactura(factura, [fecha.slice(0, 10), limpio, pesos(monto)]);
+    } catch {
+      setGuardando(false);
+      setErrores({ factura: 'No se pudo guardar la factura en este dispositivo. Intenta de nuevo o quítala.' });
+      return;
+    }
     onGuardar({
       id: deuda?.id ?? generarId(),
       nombre: limpio,
       tipo,
       monto: Number(monto),
-      fecha: deuda?.fecha ?? fechaAhora(),
+      fecha,
       fecha_limite: guardarFechaPago(modoFecha, { fecha: fechaUna, dia: diaMes }),
       nota: nota.trim(),
       movimiento_id: deuda?.movimiento_id ?? (mov ? mov.id : ''),
+      factura: ref,
     }, mov);
   }
 
@@ -77,7 +94,7 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
       {editando && (
         <button type="button" className="boton boton--peligro" onClick={() => setBorrar(true)}><Trash2 aria-hidden="true" /> Eliminar</button>
       )}
-      <button type="submit" className="boton boton--principal boton--flex"><Check aria-hidden="true" /> {editando ? 'Guardar cambios' : 'Guardar'}</button>
+      <button type="submit" className="boton boton--principal boton--flex" disabled={guardando}><Check aria-hidden="true" /> {editando ? 'Guardar cambios' : 'Guardar'}</button>
     </>
   );
 
@@ -171,6 +188,9 @@ export default function FormDeuda({ deuda, espacios, saldosMedio = {}, movimient
         <input id="deuda-nota" className="entrada" value={nota} maxLength={120} onChange={(e) => setNota(e.target.value)}
           placeholder="Ej.: 12 cuotas, interés 2 % mensual" />
       </div>
+
+      <CampoFactura valor={factura} onCambio={(v) => { setFactura(v); setErrores((x) => ({ ...x, factura: undefined })); }} />
+      {errores.factura && <p className="alerta" role="alert">{errores.factura}</p>}
 
       {borrar && (
         <Confirmar

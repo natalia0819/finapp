@@ -696,3 +696,24 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 /* ===== Monitores grandes: todo crece un poco para no verse diminuto ===== */
 @media (min-width: 1600px) { html { font-size: 17px; } }
 @media (min-width: 2200px) { html { font-size: 19px; } }
+
+/* ---- Facturas adjuntas ---- */
+.adjunto-btn { display: flex; align-items: center; gap: .7rem; width: 100%; min-height: 52px; padding: .75rem 1rem; border: 1.5px dashed color-mix(in srgb, var(--primario) 55%, var(--borde)); border-radius: var(--radio-m); background: color-mix(in srgb, var(--primario) 5%, var(--superficie)); color: var(--primario); font: inherit; text-align: left; cursor: pointer; }
+.adjunto-btn:disabled { opacity: .7; cursor: wait; }
+.adjunto-btn > svg { width: 22px; height: 22px; flex-shrink: 0; }
+.adjunto { display: flex; align-items: center; gap: .75rem; padding: .55rem; border: 1px solid var(--borde); border-radius: var(--radio-m); background: var(--superficie); }
+.adjunto__mini { width: 56px; height: 56px; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; background: var(--superficie-2); color: var(--primario); }
+.adjunto__mini img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.adjunto__mini svg { width: 24px; height: 24px; }
+.adjunto__txt { flex: 1; min-width: 0; display: grid; gap: .1rem; }
+.adjunto__txt b { font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adjunto__txt small { color: var(--texto-suave); font-size: .8rem; }
+.adjunto__ver, .adjunto__quitar { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border: 0; border-radius: 10px; background: var(--superficie-2); color: var(--texto-suave); cursor: pointer; }
+.adjunto__ver svg, .adjunto__quitar svg { width: 18px; height: 18px; }
+.mov__texto strong .clip { width: 14px; height: 14px; margin-left: .35rem; vertical-align: -1px; color: var(--primario); }
+.enlace-factura { display: inline-flex; align-items: center; gap: .35rem; width: fit-content; font-size: .88rem; font-weight: 600; color: var(--primario); text-decoration: none; }
+.enlace-factura:hover { text-decoration: underline; }
+.enlace-factura svg { width: 15px; height: 15px; }
+.enlace-factura small { font-weight: 500; color: var(--texto-suave); }
+.enlace-factura--espera { color: var(--texto-suave); font-weight: 500; }
+.enlace-factura--fila { margin: -.2rem 0 .55rem 3.9rem; }

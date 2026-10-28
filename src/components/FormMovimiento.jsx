@@ -6,8 +6,10 @@ import Confirmar from './Confirmar';
 import CampoMonto from './CampoMonto';
 import SelectorEspacio from './SelectorEspacio';
 import SelectorMedio from './Medio';
+import CampoFactura, { EnlaceFactura } from './Factura';
 import { fechaAInput, fechaAhora, fechaCorta, generarId, inputAFecha, pesos } from '../lib/formato';
-import { medioDe, TEXTO_MEDIO, validarCambio } from '../lib/movimientos';
+import { medioDe, TEXTO_MEDIO, TEXTO_TIPO, validarCambio } from '../lib/movimientos';
+import { confirmarFactura } from '../lib/facturas';
 
 // El último medio usado (digital o efectivo) viene marcado la próxima vez.
 const CLAVE_MEDIO = 'fe_medio';
@@ -29,6 +31,8 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
   const [espacioId, setEspacioId] = useState(movimiento?.espacio_id ?? '');
   const [destinoId, setDestinoId] = useState(movimiento?.espacio_destino_id ?? '');
   const [descripcion, setDescripcion] = useState(movimiento?.descripcion ?? '');
+  const [factura, setFactura] = useState(movimiento?.factura ? { ref: movimiento.factura } : null);
+  const [guardando, setGuardando] = useState(false);
   const [medio, setMedio] = useState(() => (movimiento ? medioDe(movimiento) : ultimoMedio()));
   const [fecha, setFecha] = useState(movimiento?.fecha ?? null); // null = "ahora" al guardar
   const [cambiandoFecha, setCambiandoFecha] = useState(false);
@@ -92,13 +96,23 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
     return `${alEliminar ? 'Si lo eliminas, ' : ''}${lista}. Un espacio no puede quedar en negativo: primero ajusta los gastos o traslados que usan esa plata.`;
   }
 
-  function enviar() {
-    if (!validar()) return;
+  async function enviar() {
+    if (guardando || !validar()) return;
     const movs = construir();
     const problemas = validarCambio(espacios, movimientos, movimiento ? [movimiento.id] : [], movs);
     if (problemas.length) { setErrores({ monto: textoNegativo(problemas) }); return; }
     try { localStorage.setItem(CLAVE_MEDIO, medio); } catch { /* sin almacenamiento: no pasa nada */ }
-    onGuardar(movs);
+    // La factura se guarda primero en el dispositivo; se sube a Drive al sincronizar.
+    setGuardando(true);
+    let ref = '';
+    try {
+      ref = tipo === 'traslado' ? '' : await confirmarFactura(factura, [movs[0].fecha.slice(0, 10), movs[0].descripcion || TEXTO_TIPO[tipo], pesos(monto)]);
+    } catch {
+      setGuardando(false);
+      setErrores({ general: 'No se pudo guardar la factura en este dispositivo. Intenta de nuevo o quítala.' });
+      return;
+    }
+    onGuardar(movs.map((m) => ({ ...m, factura: ref })));
   }
 
   function pedirEliminar() {
@@ -148,6 +162,7 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
           <span className={movimiento.tipo === 'gasto' ? 'negativo' : 'positivo'}>{movimiento.tipo === 'gasto' ? '−' : '+'}{pesos(movimiento.monto)}</span>
           <small>{espacios.find((e) => e.id === movimiento.espacio_id)?.nombre ?? ''} · {fechaCorta(movimiento.fecha)}</small>
         </div>
+        {movimiento.factura && <EnlaceFactura referencia={movimiento.factura} />}
         {errores.general && <p className="alerta" role="alert">{errores.general}</p>}
         {confirmar === 'eliminar' && (
           <Confirmar titulo="¿Eliminar este movimiento?" mensaje="También se quita de la deuda. Los saldos se recalculan." textoSi="Eliminar" peligro
@@ -164,7 +179,7 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
           <Trash2 aria-hidden="true" /> Eliminar
         </button>
       )}
-      <button type="submit" className="boton boton--principal boton--flex">
+      <button type="submit" className="boton boton--principal boton--flex" disabled={guardando}>
         <Check aria-hidden="true" /> {editando ? 'Guardar cambios' : 'Guardar'}
       </button>
     </>
@@ -260,6 +275,8 @@ export default function FormMovimiento({ tipoInicial = 'ingreso', movimiento, es
           </div>
         )}
       </div>
+
+      {tipo !== 'traslado' && <CampoFactura valor={factura} onCambio={setFactura} />}
 
       {errores.general && <p className="alerta" role="alert">{errores.general}</p>}
 
