@@ -1,7 +1,18 @@
 // Facturas en pantalla: el campo para adjuntar (en los formularios) y el enlace para verla.
 import { useEffect, useRef, useState } from 'react';
-import { Clock, ExternalLink, FileText, Loader2, Paperclip, X } from 'lucide-react';
+import { Camera, Clock, ExternalLink, FileText, Image, Loader2, Paperclip, X } from 'lucide-react';
 import { esPendiente, leerArchivo, prepararArchivo } from '../lib/facturas';
+
+// En el celular, al tocar "Adjuntar factura" se abre un menú con galería, cámara y archivos.
+// Cada opción tiene su propio campo porque Android muestra la galería solo cuando se piden únicamente imágenes.
+// En PC se abre directo el selector de archivos (imagen o PDF).
+const esCelular = () => window.matchMedia?.('(pointer: coarse)').matches ?? false;
+const OPCIONES = [
+  { id: 'galeria', texto: 'Galería', Icono: Image, accept: 'image/*' },
+  { id: 'camara', texto: 'Cámara', Icono: Camera, accept: 'image/*', capture: 'environment' },
+  { id: 'archivos', texto: 'Archivos', Icono: FileText, accept: 'application/pdf' },
+];
+const TODO = 'image/*,application/pdf';
 
 const tamano = (b) => (b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1e3))} KB`);
 
@@ -51,7 +62,9 @@ export function EnlaceFactura({ referencia, className = '' }) {
  * valor: null (sin factura) · { ref } (la que ya tenía) · { nuevo: { blob, tipo, nombre } } (recién elegida)
  */
 export default function CampoFactura({ valor, onCambio }) {
-  const entrada = useRef(null);
+  const entradas = useRef({});
+  const caja = useRef(null);
+  const [menu, setMenu] = useState(false);
   const [preparando, setPreparando] = useState(false);
   const [error, setError] = useState('');
   const guardada = useFactura(valor?.ref);
@@ -64,6 +77,20 @@ export default function CampoFactura({ valor, onCambio }) {
     setLocal(url);
     return () => URL.revokeObjectURL(url);
   }, [valor?.nuevo]);
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    const afuera = (e) => { if (!caja.current?.contains(e.target)) setMenu(false); };
+    const tecla = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setMenu(false); } };
+    document.addEventListener('pointerdown', afuera);
+    document.addEventListener('keydown', tecla, true);
+    return () => { document.removeEventListener('pointerdown', afuera); document.removeEventListener('keydown', tecla, true); };
+  }, [menu]);
+
+  function elegirOpcion(id) {
+    setMenu(false);
+    entradas.current[id]?.click();
+  }
 
   async function elegir(e) {
     const archivo = e.target.files?.[0];
@@ -90,7 +117,11 @@ export default function CampoFactura({ valor, onCambio }) {
   return (
     <div className="campo">
       <span className="campo__etiqueta">Factura (opcional)</span>
-      <input ref={entrada} type="file" accept="image/*,application/pdf" hidden onChange={elegir} data-factura />
+      {OPCIONES.map((o) => (
+        <input key={o.id} ref={(el) => { entradas.current[o.id] = el; }} type="file" accept={o.accept}
+          capture={o.capture} hidden onChange={elegir} data-factura={o.id} />
+      ))}
+      <input ref={(el) => { entradas.current.todo = el; }} type="file" accept={TODO} hidden onChange={elegir} data-factura="todo" />
       {valor ? (
         <div className="adjunto">
           {abrir ? (
@@ -108,10 +139,22 @@ export default function CampoFactura({ valor, onCambio }) {
           <button type="button" className="adjunto__quitar" onClick={() => onCambio(null)} aria-label="Quitar factura"><X aria-hidden="true" /></button>
         </div>
       ) : (
-        <button type="button" className="adjunto-btn" onClick={() => entrada.current?.click()} disabled={preparando}>
-          {preparando ? <Loader2 className="girar" aria-hidden="true" /> : <Paperclip aria-hidden="true" />}
-          <b>{preparando ? 'Preparando…' : 'Adjuntar factura'}</b>
-        </button>
+        <div className="adjunto-menu" ref={caja}>
+          <button type="button" className="adjunto-btn" disabled={preparando} aria-expanded={menu}
+            onClick={() => (esCelular() ? setMenu((v) => !v) : elegirOpcion('todo'))}>
+            {preparando ? <Loader2 className="girar" aria-hidden="true" /> : <Paperclip aria-hidden="true" />}
+            <b>{preparando ? 'Preparando…' : 'Adjuntar factura'}</b>
+          </button>
+          {menu && (
+            <div className="adjunto-menu__lista" role="menu">
+              {OPCIONES.map(({ id, texto, Icono }) => (
+                <button key={id} type="button" role="menuitem" onClick={() => elegirOpcion(id)}>
+                  <Icono aria-hidden="true" /> {texto}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
       {error && <small className="error">{error}</small>}
     </div>
