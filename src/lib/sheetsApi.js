@@ -249,6 +249,21 @@ export async function subirFactura({ blob, tipo, nombre }) {
   return (await resp.json()).id;
 }
 
+/** Descarga una factura de Drive para verla dentro de la app. Devuelve { blob, tipo }. */
+export async function descargarFactura(idArchivo) {
+  const token = obtenerToken();
+  if (!token) throw new ErrorGoogle('Tu sesión de Google terminó. Vuelve a conectarte.', 401);
+  let resp;
+  try {
+    resp = await fetch(`${DRIVE}/${idArchivo}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+  } catch {
+    throw new ErrorGoogle('Sin conexión a internet.', 0);
+  }
+  if (!resp.ok) throw new ErrorGoogle(`No se pudo abrir la factura (${resp.status}).`, resp.status);
+  const blob = await resp.blob();
+  return { blob, tipo: blob.type || resp.headers.get('Content-Type') || '' };
+}
+
 /** Manda una factura a la papelera de Drive (se puede recuperar desde allá). */
 export async function facturaAPapelera(idArchivo) {
   try {

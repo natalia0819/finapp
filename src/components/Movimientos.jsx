@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Download, Loader2 } from 'lucide-react';
 import FilaMovimiento from './FilaMovimiento';
+import Ajustar from './Ajustar';
 import { agruparPorDia, filtrar, mesesDisponibles, resumen } from '../lib/movimientos';
 import { etiquetaDia, fechaAhora, nombreMes, pesos } from '../lib/formato';
 import { iconoDe } from '../constants/espacios';
@@ -103,9 +104,9 @@ export default function Movimientos({ espacios, movimientos, deudas = [], abonos
       <div className="historial__cuerpo">
         <aside className="historial__panel" aria-label="Resumen del periodo">
           <div className="resumen-periodo">
-            <div><small>Entró</small><strong className="positivo">+{pesos(entro)}</strong></div>
-            <div><small>Salió</small><strong className="negativo">−{pesos(salio)}</strong></div>
-            <div><small>Balance</small><strong>{pesos(entro - salio)}</strong></div>
+            <div><small>Entró</small><strong className="positivo"><Ajustar>+{pesos(entro)}</Ajustar></strong></div>
+            <div><small>Salió</small><strong className="negativo"><Ajustar>−{pesos(salio)}</Ajustar></strong></div>
+            <div><small>Balance</small><strong><Ajustar>{pesos(entro - salio)}</Ajustar></strong></div>
           </div>
 
           <section className="gastos-espacio solo-pc" aria-labelledby="titulo-gastos-espacio">

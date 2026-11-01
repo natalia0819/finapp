@@ -5,8 +5,10 @@ import { datosMoneda, redondear } from './moneda';
 export function pesos(valor) {
   const m = datosMoneda();
   const n = redondear(valor);
+  // Si no hay centavos, no se muestran: "US$ 1,250" en vez de "US$ 1,250.00" (ocupa menos espacio).
+  const decimales = Number.isInteger(n) ? 0 : m.decimales;
   const numero = new Intl.NumberFormat(m.locale, {
-    minimumFractionDigits: m.decimales, maximumFractionDigits: m.decimales, useGrouping: 'always',
+    minimumFractionDigits: decimales, maximumFractionDigits: decimales, useGrouping: 'always',
   }).format(Math.abs(n));
   const texto = m.simboloDespues ? `${numero}\u00A0${m.simbolo}` : `${m.simbolo}\u00A0${numero}`; // espacio que no se parte
   return n < 0 ? `−${texto}` : texto;

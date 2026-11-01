@@ -4,6 +4,8 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronRight, CircleCheck, HandCoins, Plus } from 'lucide-react';
 import DetalleDeuda from './DetalleDeuda';
+import Ajustar from './Ajustar';
+import { ClipFactura } from './Factura';
 import { pesos } from '../lib/formato';
 import { agruparDeudas, textoPago } from '../lib/deudas';
 
@@ -67,8 +69,8 @@ export default function Deudas({ deudas, abonos, espacios, movimientos, seleccio
     <div className="deudas">
       <h1 className="titulo-pantalla deudas__titulo">Deudas</h1>
       <div className="deudas__totales">
-        <div><small>Debes</small><strong className="negativo">{pesos(totales.debo)}</strong></div>
-        <div><small>Te deben</small><strong className="positivo">{pesos(totales.me_deben)}</strong></div>
+        <div><small>Debes</small><strong className="negativo"><Ajustar>{pesos(totales.debo)}</Ajustar></strong></div>
+        <div><small>Te deben</small><strong className="positivo"><Ajustar>{pesos(totales.me_deben)}</Ajustar></strong></div>
       </div>
       <button type="button" className="boton boton--principal boton--grande deudas__nueva" onClick={onNueva}>
         <Plus aria-hidden="true" /> Nueva deuda
@@ -93,7 +95,7 @@ export default function Deudas({ deudas, abonos, espacios, movimientos, seleccio
                 <button type="button" className="acord__cab" aria-expanded={abierta} onClick={() => setAbiertas((a) => alternar(a, id))}>
                   <span className="acord__ico"><Icono aria-hidden="true" /></span>
                   <span className="acord__txt"><strong>{titulo}</strong><small>{items.length ? sub(items.length) : 'Nada por ahora'}</small></span>
-                  {total != null && <span className={`acord__monto ${clase}`}>{pesos(total)}</span>}
+                  {total != null && <Ajustar className={`acord__monto ${clase}`}>{pesos(total)}</Ajustar>}
                   <ChevronRight className="acord__flecha" aria-hidden="true" />
                 </button>
                 {abierta && (
@@ -103,7 +105,7 @@ export default function Deudas({ deudas, abonos, espacios, movimientos, seleccio
                       <button key={deuda.id} type="button"
                         className={`deuda-fila ${deuda.tipo === 'me_deben' ? 'deuda-fila--me' : ''} ${seleccion === deuda.id && esPC ? 'sel' : ''}`}
                         onClick={() => onSeleccionar(deuda.id)}>
-                        <span className="deuda-fila__arriba"><strong>{deuda.nombre}</strong><b>{pesos(pendiente)}</b></span>
+                        <span className="deuda-fila__arriba"><strong><span className="deuda-fila__nombre">{deuda.nombre}</span><ClipFactura referencia={deuda.factura} /></strong><Ajustar className="deuda-fila__monto">{pesos(pendiente)}</Ajustar></span>
                         <span className="barra" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`Avance de ${deuda.nombre}`}>
                           <span style={{ width: `${pct}%` }} />
                         </span>

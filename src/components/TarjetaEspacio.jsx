@@ -5,6 +5,7 @@ import { iconoDe } from '../constants/espacios';
 import { pesos } from '../lib/formato';
 import { TEXTO_MEDIO } from '../lib/movimientos';
 import { IconoMedio, MarcaMedio } from './Medio';
+import Ajustar from './Ajustar';
 
 export default function TarjetaEspacio({ espacio, saldo, porMedio, onAbrir }) {
   const Icono = iconoDe(espacio.icono);
@@ -28,11 +29,11 @@ export default function TarjetaEspacio({ espacio, saldo, porMedio, onAbrir }) {
       </span>
       <span className="espacio__info">
         <span className="espacio__nombre">{espacio.nombre}</span>
-        <span className={`espacio__saldo ${saldo < 0 ? 'negativo' : ''}`}>{pesos(saldo)}</span>
+        <Ajustar className={`espacio__saldo ${saldo < 0 ? 'negativo' : ''}`}>{pesos(saldo)}</Ajustar>
         {mixto && (
           <span className="espacio__medios">
-            <span><IconoMedio medio="efectivo" />{pesos(efectivo)}</span>
-            <span><IconoMedio medio="digital" />{pesos(digital)}</span>
+            <span><IconoMedio medio="efectivo" /><Ajustar>{pesos(efectivo)}</Ajustar></span>
+            <span><IconoMedio medio="digital" /><Ajustar>{pesos(digital)}</Ajustar></span>
           </span>
         )}
         {tieneMeta && (

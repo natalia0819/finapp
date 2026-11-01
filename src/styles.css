@@ -484,7 +484,7 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .acord__cuerpo { border-top: 1px solid var(--borde); }
 .acord__vacio { margin: 0; padding: .9rem 1rem; color: var(--texto-suave); }
 .acord__mas { display: block; width: 100%; min-height: 44px; padding: .6rem; border: 0; border-top: 1px solid var(--borde); background: none; color: var(--primario); font-weight: 600; cursor: pointer; }
-.deuda-fila { --c: var(--negativo); display: grid; gap: .4rem; width: 100%; padding: .75rem 1rem; border: 0; background: none; text-align: left; cursor: pointer; }
+.deuda-fila { --c: var(--negativo); display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; width: 100%; padding: .75rem 1rem; border: 0; background: none; text-align: left; cursor: pointer; }
 .deuda-fila--me { --c: var(--positivo); }
 .acord--pagadas .deuda-fila { --c: var(--texto-suave); }
 .deuda-fila + .deuda-fila { border-top: 1px solid var(--borde); }
@@ -702,7 +702,8 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .adjunto-btn:disabled { opacity: .7; cursor: wait; }
 .adjunto-btn > svg { width: 22px; height: 22px; flex-shrink: 0; }
 .adjunto { display: flex; align-items: center; gap: .75rem; padding: .55rem; border: 1px solid var(--borde); border-radius: var(--radio-m); background: var(--superficie); }
-.adjunto__mini { width: 56px; height: 56px; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; background: var(--superficie-2); color: var(--primario); }
+.adjunto__mini { width: 56px; height: 56px; padding: 0; border: 0; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; background: var(--superficie-2); color: var(--primario); cursor: zoom-in; }
+.adjunto__mini:disabled { cursor: default; }
 .adjunto__mini img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .adjunto__mini svg { width: 24px; height: 24px; }
 .adjunto__txt { flex: 1; min-width: 0; display: grid; gap: .1rem; }
@@ -711,7 +712,7 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .adjunto__ver, .adjunto__quitar { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border: 0; border-radius: 10px; background: var(--superficie-2); color: var(--texto-suave); cursor: pointer; }
 .adjunto__ver svg, .adjunto__quitar svg { width: 18px; height: 18px; }
 .mov__texto strong .clip { width: 14px; height: 14px; margin-left: .35rem; vertical-align: -1px; color: var(--primario); }
-.enlace-factura { display: inline-flex; align-items: center; gap: .35rem; width: fit-content; font-size: .88rem; font-weight: 600; color: var(--primario); text-decoration: none; }
+.enlace-factura { padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: .35rem; width: fit-content; font-size: .88rem; font-weight: 600; color: var(--primario); text-decoration: none; }
 .enlace-factura:hover { text-decoration: underline; }
 .enlace-factura svg { width: 15px; height: 15px; }
 .enlace-factura small { font-weight: 500; color: var(--texto-suave); }
@@ -723,3 +724,32 @@ select.entrada { appearance: none; padding-right: 2.2rem; cursor: pointer;
 .adjunto-menu__lista button { display: flex; align-items: center; gap: .75rem; min-height: 48px; padding: 0 .8rem; border: 0; border-radius: 10px; background: none; color: var(--texto); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
 .adjunto-menu__lista button:hover { background: var(--superficie-2); }
 .adjunto-menu__lista svg { width: 20px; height: 20px; color: var(--primario); }
+
+/* Visor de facturas: dentro de la app, se cierra con la X */
+.visor { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 3.5rem 1rem 1rem; background: rgb(10 6 20 / .92); }
+.visor__cerrar { position: absolute; top: max(.8rem, env(safe-area-inset-top)); right: .8rem; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgb(255 255 255 / .14); color: #fff; cursor: pointer; }
+.visor__cerrar svg { width: 24px; height: 24px; }
+.visor__imagen { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; box-shadow: 0 10px 40px rgb(0 0 0 / .4); }
+.visor__pdf { width: min(900px, 100%); height: 100%; border: 0; border-radius: 8px; background: #fff; }
+.visor__cargando { width: 36px; height: 36px; color: #fff; }
+.visor__error { max-width: 320px; margin: 0; color: #fff; text-align: center; }
+
+/* ---- Montos grandes: la letra se achica para caber (componente Ajustar) ---- */
+.ajusta { display: block; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.espacio, .espacio__info, .espacio__medios > span, .rejilla > * { min-width: 0; }
+.espacio__medios > span { display: flex; align-items: center; gap: .3rem; }
+.balance, .balance__mes span { min-width: 0; }
+.balance__mes span { flex: 1; }
+.deuda-fila__arriba strong { flex: 1 1 45%; }
+.deuda-fila__monto { flex: 0 1 auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.acord__monto { flex: 0 1 auto; max-width: 45%; }
+.acord__txt { min-width: 0; }
+.detalle-deuda__datos > div, .detalle-deuda__tarjeta { min-width: 0; }
+
+/* Clip de factura dentro de una fila: se toca y abre la factura */
+.clip-factura { display: inline-grid; place-items: center; width: 26px; height: 26px; margin: -4px 0 -4px .2rem; vertical-align: middle; border-radius: 8px; color: var(--primario); cursor: zoom-in; flex-shrink: 0; }
+.clip-factura:hover, .clip-factura:focus-visible { background: color-mix(in srgb, var(--primario) 12%, transparent); outline: none; }
+.clip-factura svg { width: 15px; height: 15px; }
+.deuda-fila__arriba { align-items: center; }
+.deuda-fila__arriba strong { display: flex; align-items: center; }
+.deuda-fila__nombre { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

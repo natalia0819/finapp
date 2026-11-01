@@ -1,6 +1,7 @@
 // Pantalla 3: inicio.
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Plus } from 'lucide-react';
 import TarjetaEspacio from './TarjetaEspacio';
+import Ajustar from './Ajustar';
 import FilaMovimiento from './FilaMovimiento';
 import { fechaAhora, pesos } from '../lib/formato';
 import { filtrar, ordenarRecientes, resumen } from '../lib/movimientos';
@@ -38,7 +39,7 @@ export default function Inicio({ apodo, avatar, onCambiarAvatar, espacios, movim
 
         <div className="balance">
           <p className="balance__etiqueta">Dinero total</p>
-          <p className="total">{pesos(total)}</p>
+          <p className="total"><Ajustar>{pesos(total)}</Ajustar></p>
           <p className="total__nota">en {activos.length} {activos.length === 1 ? 'espacio' : 'espacios'}</p>
           <div className="medios">
             {['efectivo', 'digital'].map((m) => (
@@ -48,8 +49,8 @@ export default function Inicio({ apodo, avatar, onCambiarAvatar, espacios, movim
             ))}
           </div>
           <div className="balance__mes" aria-label="Este mes">
-            <span><small>Entró este mes</small><strong>+{pesos(mes.entro)}</strong></span>
-            <span><small>Salió este mes</small><strong>−{pesos(mes.salio)}</strong></span>
+            <span><small>Entró este mes</small><strong><Ajustar>+{pesos(mes.entro)}</Ajustar></strong></span>
+            <span><small>Salió este mes</small><strong><Ajustar>−{pesos(mes.salio)}</Ajustar></strong></span>
           </div>
           <p className="ultimo">
             {ultimo ? mensajeUltimo(ultimo, espacios) : 'Todavía no hay movimientos. Registra tu primer ingreso para empezar.'}

@@ -6,6 +6,8 @@ import { fechaCorta, pesos } from '../lib/formato';
 import { describirFechaPago, diaCorto, proximoPago, registrosDe, resumenDeuda, TIPOS_DEUDA } from '../lib/deudas';
 import { medioDe } from '../lib/movimientos';
 import { MarcaMedio } from './Medio';
+import Ajustar from './Ajustar';
+import { ClipFactura, EnlaceFactura } from './Factura';
 
 export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, conVolver, onVolver, onEditar, onAbonar, onPagarTodo, onSumar, onBorrarRegistro }) {
   const r = resumenDeuda(deuda, abonos);
@@ -37,16 +39,17 @@ export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, con
       <div className="detalle-deuda__tarjeta">
         <span className="chip">{r.pagada ? '¡Saldada!' : TIPOS_DEUDA[deuda.tipo]}</span>
         <small className="detalle-deuda__etq">{meDeben ? 'Te falta recibir' : 'Pendiente'}</small>
-        <span className="detalle-deuda__pend">{pesos(r.pendiente)}</span>
+        <Ajustar className="detalle-deuda__pend">{pesos(r.pendiente)}</Ajustar>
         <span className="barra barra--grande" role="progressbar" aria-valuenow={r.pct} aria-valuemin={0} aria-valuemax={100} aria-label="Avance de la deuda">
           <span style={{ width: `${r.pct}%` }} />
         </span>
         <div className="detalle-deuda__datos">
-          <div><small>Total</small><b>{pesos(r.total)}</b></div>
-          <div><small>{meDeben ? 'Te han pagado' : 'Abonado'}</small><b className="positivo">{pesos(r.abonado)}</b></div>
+          <div><small>Total</small><b><Ajustar>{pesos(r.total)}</Ajustar></b></div>
+          <div><small>{meDeben ? 'Te han pagado' : 'Abonado'}</small><b className="positivo"><Ajustar>{pesos(r.abonado)}</Ajustar></b></div>
           <div className="detalle-deuda__dato-ancho"><small>Fecha de pago</small><b className={prox?.atrasado ? 'fp-rojo' : ''}>{fechaPago}</b></div>
         </div>
         {deuda.nota && <p className="detalle-deuda__nota"><StickyNote aria-hidden="true" /> {deuda.nota}</p>}
+        {deuda.factura && <EnlaceFactura referencia={deuda.factura} />}
       </div>
 
       <div className="detalle-deuda__acciones">
@@ -84,7 +87,7 @@ export default function DetalleDeuda({ deuda, abonos, espacios, movimientos, con
                     aria-label={`${esAbono ? 'Abono' : 'Sumó a la deuda'} de ${pesos(reg.monto)}. Tocar para borrar`}>
                     <span className="mov__icono"><Icono aria-hidden="true" /></span>
                     <span className="mov__texto">
-                      <strong>{esAbono ? 'Abono' : 'Sumó a la deuda'}</strong>
+                      <strong>{esAbono ? 'Abono' : 'Sumó a la deuda'}<ClipFactura referencia={reg.factura} /></strong>
                       <small>
                         {mov && <MarcaMedio medio={medioDe(mov)} className="marca-medio--mini" />}
                         {lugar(reg, mov, espacio)} · {fechaCorta(reg.fecha)}
